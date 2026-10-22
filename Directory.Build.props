@@ -1,0 +1,43 @@
+<Project>
+
+  <!--
+    Common MSBuild properties shared by every project in the Taskbar Dino solution.
+    TargetFramework is intentionally NOT set here so each project can choose:
+      * net10.0          -> portable, Windows-free layers (Core, Animation, Game, Tests).
+                            Compiling these without the -windows TFM structurally guarantees
+                            they contain zero Windows API dependencies.
+      * net10.0-windows  -> Windows integration + rendering + the app host.
+  -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Deterministic>true</Deterministic>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- CS1591: missing XML doc comment on a public member. We document deliberately,
+         not exhaustively, so relax this until the public API stabilises. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Open-source / package metadata. -->
+  <PropertyGroup>
+    <Product>Taskbar Dino</Product>
+    <Company>Taskbar Dino Contributors</Company>
+    <Authors>Taskbar Dino Contributors</Authors>
+    <Version>0.1.0</Version>
+    <Copyright>Copyright (c) Taskbar Dino Contributors</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/taskbar-dino/taskbar-dino</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <!-- Note: Windows-only properties (SupportedOSPlatformVersion, PlatformTarget x64) are set in the
+       individual net10.0-windows projects, not here — Directory.Build.props is imported before the
+       project sets TargetFramework, so a $(TargetFramework)-based condition would never match. -->
+
+</Project>

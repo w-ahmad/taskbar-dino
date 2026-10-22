@@ -1,0 +1,42 @@
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+end_of_line = crlf
+
+[*.{yml,yaml,json,csproj,props,targets,slnx,xml,manifest}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+# Modern C# conventions
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_prefer_braces = true:silent
+csharp_style_var_for_built_in_types = false:silent
+csharp_style_var_when_type_is_apparent = true:silent
+dotnet_sort_system_directives_first = true
+dotnet_style_qualification_for_field = false:warning
+dotnet_style_qualification_for_property = false:warning
+
+# --- Analyzer severity tuning ---------------------------------------------------------------
+# CA1848/CA1873: high-performance LoggerMessage delegates. Taskbar Dino logs a handful of
+# lifecycle/diagnostic events, never in a hot path, so the readability cost of source-generated
+# logging delegates everywhere is not worth it here. Disable rather than litter the code.
+dotnet_diagnostic.CA1848.severity = none
+dotnet_diagnostic.CA1873.severity = none
+# CA1416 (platform-compat): the app targets Windows 10 1809+ (declared in app.manifest) and never
+# multi-targets, so guarding every Win10/11 API call adds only noise. We keep the unversioned
+# net10.0-windows TFM to avoid dragging in the large WinRT projection.
+dotnet_diagnostic.CA1416.severity = none
+
+[tests/**/*.cs]
+# Test methods follow the Method_Scenario_Expectation convention; underscores are intentional.
+dotnet_diagnostic.CA1707.severity = none
+# Test types/methods are discovered by the runner, not called publicly.
+dotnet_diagnostic.CA1515.severity = none
