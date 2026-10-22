@@ -15,7 +15,6 @@
     <AssemblyName>TaskbarDino</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\TaskbarDino.ico</ApplicationIcon>
-    <SelfContained>false</SelfContained>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
 
     <!-- Release deployment: a single native executable (no runtime install), trimmed and size-tuned. -->
