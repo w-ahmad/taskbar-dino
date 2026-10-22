@@ -1,9 +1,8 @@
 namespace TaskbarDino.Core.Settings;
 
 /// <summary>
-/// Built-in dino colour themes. The sprite art is authored in greyscale and tinted at render time,
-/// so adding a theme is just adding an entry here plus a tint colour — the foundation for the
-/// future downloadable-skins system.
+/// Built-in dino colours. The art is authored once as a three-tone body and re-rasterised with a
+/// palette, so a theme is just a palette — no duplicated sprite sheets.
 /// </summary>
 public enum DinoTheme
 {

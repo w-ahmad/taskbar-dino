@@ -37,10 +37,12 @@ public class PixelRectTests
     }
 
     [Fact]
-    public void Inflate_GrowsSymmetrically()
+    public void Covers_IsTrueOnlyWhenOtherIsInside()
     {
-        var r = new PixelRect(10, 10, 20, 20).Inflate(5, 2);
-        Assert.Equal(new PixelRect(5, 8, 30, 24), r);
+        var outer = new PixelRect(0, 0, 100, 100);
+        Assert.True(new PixelRect(0, 0, 100, 100).Covers(outer));
+        Assert.True(new PixelRect(-5, -5, 110, 110).Covers(outer));
+        Assert.False(new PixelRect(1, 0, 99, 100).Covers(outer));
     }
 
     [Fact]

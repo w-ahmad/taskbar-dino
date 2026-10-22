@@ -1,16 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Unit tests for the pure layers (Core, Animation, Game). Targets plain net10.0 so the
-       whole suite runs on any OS / CI runner without a desktop session. -->
+  <!-- Unit tests for TaskbarDino.Core (pure logic). Targets plain net10.0 so the whole suite runs
+       on any OS / CI runner without a desktop session. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <RootNamespace>TaskbarDino.Tests</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
@@ -18,8 +17,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TaskbarDino.Core\TaskbarDino.Core.csproj" />
-    <ProjectReference Include="..\..\src\TaskbarDino.Animation\TaskbarDino.Animation.csproj" />
-    <ProjectReference Include="..\..\src\TaskbarDino.Game\TaskbarDino.Game.csproj" />
   </ItemGroup>
 
   <ItemGroup>

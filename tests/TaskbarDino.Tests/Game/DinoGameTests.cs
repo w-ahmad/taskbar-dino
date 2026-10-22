@@ -1,4 +1,4 @@
-using TaskbarDino.Game.Runner;
+using TaskbarDino.Core.Game;
 
 namespace TaskbarDino.Tests.Game;
 
@@ -21,11 +21,52 @@ public class DinoGameTests
         }
     }
 
+    private static void RunUntilCrash(DinoGame game, int maxSteps = 1200)
+    {
+        for (int i = 0; i < maxSteps && game.State == GameState.Running; i++)
+        {
+            game.Update(Step);
+        }
+
+        Assert.Equal(GameState.Crashed, game.State);
+    }
+
+    /// <summary>A simple bot: hold-jump when an obstacle is just ahead; duck for mid-height birds.</summary>
+    private static void PlayBot(DinoGame game, int steps)
+    {
+        for (int i = 0; i < steps; i++)
+        {
+            bool duck = false;
+            if (!game.Trex.IsJumping)
+            {
+                foreach (Obstacle o in game.Obstacles)
+                {
+                    float gap = o.X - (game.Trex.X + GameConfig.DinoWidth);
+                    bool midBird = o.Type == ObstacleType.Pterodactyl && o.Y + o.Height == GameConfig.BirdBottoms[1];
+                    bool highBird = o.Type == ObstacleType.Pterodactyl && o.Y + o.Height == GameConfig.BirdBottoms[2];
+                    if (gap is > -30f and < 24f && midBird)
+                    {
+                        duck = true;
+                        break;
+                    }
+
+                    if (gap is > 0f and < 15f && !highBird && !midBird)
+                    {
+                        game.OnJumpDown();
+                        break;
+                    }
+                }
+            }
+
+            game.OnDuck(duck);
+            game.Update(Step);
+        }
+    }
+
     [Fact]
     public void NewGame_StartsRunning_NoWaiting()
     {
         DinoGame game = NewGame();
-
         Assert.Equal(GameState.Running, game.State);
         Assert.Equal(0, game.Score);
     }
@@ -34,9 +75,7 @@ public class DinoGameTests
     public void JumpDown_WhenGrounded_MakesTheDinoJump()
     {
         DinoGame game = NewGame();
-
         game.OnJumpDown();
-
         Assert.True(game.Trex.IsJumping);
     }
 
@@ -44,42 +83,75 @@ public class DinoGameTests
     public void StandingStill_CrashesWithoutScoring()
     {
         DinoGame game = NewGame();
-
-        for (int i = 0; i < 600 && game.State == GameState.Running; i++)
-        {
-            game.Update(Step);
-        }
-
-        // It hit the first obstacle having dodged none — the score is dodges, not distance.
-        Assert.Equal(GameState.Crashed, game.State);
+        RunUntilCrash(game);
         Assert.Equal(0, game.Score);
+        Assert.Equal(TrexPose.Dead, game.Trex.Pose);
     }
 
     [Fact]
-    public void DodgingObstacles_IncrementsScore()
+    public void Crash_FreezesTheScene_UntilRestart()
+    {
+        DinoGame game = NewGame();
+        RunUntilCrash(game);
+        int obstacles = game.Obstacles.Count;
+        float x = game.Obstacles[0].X;
+
+        Advance(game, 5); // nothing moves on the game-over screen
+
+        Assert.Equal(GameState.Crashed, game.State);
+        Assert.Equal(obstacles, game.Obstacles.Count);
+        Assert.Equal(x, game.Obstacles[0].X);
+    }
+
+    [Fact]
+    public void Restart_IsLockedOut_BrieflyAfterCrash_ThenAccepted()
+    {
+        DinoGame game = NewGame();
+        RunUntilCrash(game);
+
+        game.Update(Step);
+        game.OnJumpDown(); // too soon: ignored so the game-over screen is seen
+        Assert.Equal(GameState.Crashed, game.State);
+
+        Advance(game, GameConfig.RestartLockoutSeconds + 0.1);
+        Assert.True(game.RestartReady);
+        game.OnJumpDown();
+
+        Assert.Equal(GameState.Running, game.State);
+        Assert.Equal(0, game.Score);
+        Assert.Empty(game.Obstacles);
+        Assert.True(game.Trex.IsAlive);
+    }
+
+    [Fact]
+    public void DodgingObstacles_IncrementsScore_AndKeepsHighScore()
     {
         DinoGame game = NewGame(seed: 7);
+        PlayBot(game, 60 * 40);
+        Assert.True(game.HighScore >= 3, $"a dodging player should have scored, got {game.HighScore}");
 
-        // A simple player: hold-jump whenever an obstacle is approaching just ahead and we're grounded.
-        for (int i = 0; i < 1800; i++) // 30 s
-        {
-            if (!game.Trex.IsJumping)
-            {
-                foreach (Obstacle o in game.Obstacles)
-                {
-                    float gap = o.X - (game.Trex.X + GameConfig.DinoWidth);
-                    if (gap is > 0f and < 15f)
-                    {
-                        game.OnJumpDown();
-                        break;
-                    }
-                }
-            }
+        // After a restart the score resets but the best is kept.
+        RunUntilCrash(game, 60 * 60);
+        int best = game.HighScore;
+        Advance(game, 1);
+        game.OnJumpDown();
+        Assert.Equal(0, game.Score);
+        Assert.Equal(best, game.HighScore);
+    }
 
-            game.Update(Step);
-        }
+    [Fact]
+    public void Duck_LowersTheCollisionBox_OnTheGroundOnly()
+    {
+        DinoGame game = NewGame();
+        game.OnDuck(true);
+        Assert.Equal(TrexPose.Ducking, game.Trex.Pose);
+        Assert.Equal(GameConfig.DuckHeight, game.Trex.Bounds.Height);
 
-        Assert.True(game.HighScore >= 1, $"a dodging player should have scored at least one, got {game.HighScore}");
+        game.OnDuck(false);
+        game.OnJumpDown();
+        game.OnDuck(true); // mid-air: drops faster, but does not duck
+        Assert.Equal(TrexPose.Jumping, game.Trex.Pose);
+        Assert.Equal(GameConfig.DinoHeight, game.Trex.Bounds.Height);
     }
 
     [Fact]
@@ -87,42 +159,15 @@ public class DinoGameTests
     {
         DinoGame game = NewGame();
         game.SeedHighScore(500);
-
         Assert.Equal(500, game.HighScore);
-    }
-
-    [Fact]
-    public void StandingStill_Crashes_ThenAutoRestarts()
-    {
-        DinoGame game = NewGame();
-
-        bool crashed = false;
-        for (int i = 0; i < 600 && !crashed; i++) // up to 10 s
-        {
-            game.Update(Step);
-            crashed = game.State == GameState.Crashed;
-        }
-
-        Assert.True(crashed, "the stationary dino never hit an obstacle");
-
-        bool ranAgain = false;
-        for (int i = 0; i < 120 && !ranAgain; i++) // within ~2 s the crash pause ends
-        {
-            game.Update(Step);
-            ranAgain = game.State == GameState.Running;
-        }
-
-        Assert.True(ranAgain, "the run did not auto-restart after the crash");
     }
 
     [Fact]
     public void Update_ClampsHugeDelta_NoRunawaySteps()
     {
         DinoGame game = NewGame();
-
-        game.Update(5f); // a massive stall must not fast-forward the whole world
-
-        Assert.True(game.Score < 50, $"a single huge delta over-advanced the game (score {game.Score})");
+        game.Update(5f);
+        Assert.True(game.Obstacles.Count <= 2, "a single huge delta over-advanced the game");
     }
 
     [Fact]
@@ -131,11 +176,39 @@ public class DinoGameTests
         DinoGame a = NewGame(seed: 99);
         DinoGame b = NewGame(seed: 99);
 
-        Advance(a, 3.0);
-        Advance(b, 3.0);
+        PlayBot(a, 600);
+        PlayBot(b, 600);
 
         Assert.Equal(a.State, b.State);
         Assert.Equal(a.Score, b.Score);
         Assert.Equal(a.Obstacles.Count, b.Obstacles.Count);
+        Assert.Equal(a.Clouds.Count, b.Clouds.Count);
+    }
+
+    [Fact]
+    public void Decor_ScrollsAndRecycles()
+    {
+        DinoGame game = NewGame();
+        Advance(game, 10);
+        Assert.NotEmpty(game.Clouds);
+        Assert.True(game.Clouds.Count <= GameConfig.MaxClouds);
+        Assert.InRange(game.GroundOffset, 0f, GameConfig.GroundTileWidth);
+        Assert.All(game.Clouds, c => Assert.InRange(c.Y, GameConfig.CloudMinY, GameConfig.CloudMaxY));
+    }
+
+    [Fact]
+    public void FrameRateIndependent_SameResultAt30And120Hz()
+    {
+        DinoGame slow = NewGame(seed: 5);
+        DinoGame fast = NewGame(seed: 5);
+        for (int i = 0; i < 30 * 8; i++) slow.Update(1f / 30f);
+        for (int i = 0; i < 120 * 8; i++) fast.Update(1f / 120f);
+
+        Assert.Equal(slow.State, fast.State);
+        Assert.Equal(slow.Obstacles.Count, fast.Obstacles.Count);
+        if (slow.Obstacles.Count > 0)
+        {
+            Assert.Equal(slow.Obstacles[0].X, fast.Obstacles[0].X, precision: 2);
+        }
     }
 }

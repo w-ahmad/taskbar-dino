@@ -1,12 +1,11 @@
-using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace TaskbarDino.Core.Graphics;
 
 /// <summary>
-/// A 32-bit pixel laid out as B, G, R, A in memory — byte-for-byte compatible with the DXGI
-/// <c>B8G8R8A8_UNORM</c> format used by the Direct2D/DirectComposition swap chain, so pixel buffers
-/// can be uploaded to the GPU without conversion.
+/// A 32-bit premultiplied pixel laid out as B, G, R, A in memory — byte-for-byte the DXGI
+/// <c>B8G8R8A8_UNORM</c> format of the swap chain, so pixel buffers upload to the GPU unconverted.
+/// The art is fully opaque or fully transparent, so premultiplied and straight alpha coincide.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public readonly record struct Bgra32(byte B, byte G, byte R, byte A)
@@ -15,32 +14,22 @@ public readonly record struct Bgra32(byte B, byte G, byte R, byte A)
 
     /// <summary>Creates an opaque pixel from red/green/blue components.</summary>
     public static Bgra32 Rgb(byte r, byte g, byte b) => new(b, g, r, 255);
+
+    public bool IsOpaque => A != 0;
 }
 
-/// <summary>
-/// A straight-alpha RGBA colour used for theming/tinting and clear colours. Kept as bytes for
-/// compactness; converts to the premultiplied <see cref="Bgra32"/> the GPU expects.
-/// </summary>
-public readonly record struct Rgba(byte R, byte G, byte B, byte A)
+/// <summary>An opaque RGB colour (the Windows accent colour, palette entries).</summary>
+public readonly record struct Rgb(byte R, byte G, byte B)
 {
-    public static Rgba White => new(255, 255, 255, 255);
-    public static Rgba Black => new(0, 0, 0, 255);
-    public static Rgba Transparent => default;
+    public Bgra32 ToBgra32() => Bgra32.Rgb(R, G, B);
 
-    /// <summary>Creates a colour from a packed <c>0xAARRGGBB</c> value.</summary>
-    public static Rgba FromArgb(uint argb) =>
-        new((byte)(argb >> 16), (byte)(argb >> 8), (byte)argb, (byte)(argb >> 24));
+    /// <summary>Multiplies each channel by <paramref name="factor"/> (darkens below 1).</summary>
+    public Rgb Scale(float factor) => new(Mul(R, factor), Mul(G, factor), Mul(B, factor));
 
-    /// <summary>Creates an opaque colour from red, green and blue.</summary>
-    public static Rgba Rgb(byte r, byte g, byte b) => new(r, g, b, 255);
+    /// <summary>Moves each channel toward white by <paramref name="amount"/> in [0, 1].</summary>
+    public Rgb Lighten(float amount) => new(Toward(R, amount), Toward(G, amount), Toward(B, amount));
 
-    /// <summary>Normalized straight-alpha components in [0, 1], as Direct2D's <c>D2D1_COLOR_F</c> expects.</summary>
-    public Vector4 ToVector4() => new(R / 255f, G / 255f, B / 255f, A / 255f);
+    private static byte Mul(byte c, float f) => (byte)Math.Clamp(MathF.Round(c * f), 0f, 255f);
 
-    /// <summary>Converts to a premultiplied BGRA pixel for GPU upload.</summary>
-    public Bgra32 ToPremultipliedBgra32()
-    {
-        float a = A / 255f;
-        return new Bgra32((byte)(B * a), (byte)(G * a), (byte)(R * a), A);
-    }
+    private static byte Toward(byte c, float t) => (byte)Math.Clamp(MathF.Round(c + ((255 - c) * t)), 0f, 255f);
 }

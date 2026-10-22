@@ -1,5 +1,5 @@
+using TaskbarDino.Core.Game;
 using TaskbarDino.Core.Primitives;
-using TaskbarDino.Game.Runner;
 
 namespace TaskbarDino.Tests.Game;
 
@@ -72,6 +72,30 @@ public class TrexTests
     }
 
     [Fact]
+    public void DuckMidAir_LandsSooner()
+    {
+        int Airtime(bool drop)
+        {
+            var trex = new Trex();
+            trex.StartJump();
+            int frames = 0;
+            while (trex.IsJumping && frames < 400)
+            {
+                trex.Step();
+                frames++;
+                if (drop && frames == 8)
+                {
+                    trex.SetDuck(true);
+                }
+            }
+
+            return frames;
+        }
+
+        Assert.True(Airtime(drop: true) < Airtime(drop: false));
+    }
+
+    [Fact]
     public void Bounds_SitOnGround_AtX()
     {
         var trex = new Trex { X = 40f };
@@ -83,12 +107,14 @@ public class TrexTests
     }
 
     [Fact]
-    public void Kill_SetsDeadPose()
+    public void Kill_SetsDeadPose_AndBlocksJumping()
     {
         var trex = new Trex();
         trex.Kill();
 
         Assert.False(trex.IsAlive);
         Assert.Equal(TrexPose.Dead, trex.Pose);
+        trex.StartJump();
+        Assert.False(trex.IsJumping);
     }
 }

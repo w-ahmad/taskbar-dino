@@ -1,53 +1,54 @@
-using System.Numerics;
-
 using TaskbarDino.Core.Primitives;
 
 namespace TaskbarDino.Core.Graphics;
 
-/// <summary>An opaque handle to a GPU texture owned by an <see cref="IRenderer"/>.</summary>
-public readonly record struct TextureHandle(int Id)
+/// <summary>A named sub-rectangle of a texture atlas, in atlas pixels.</summary>
+public readonly record struct AtlasRegion(PixelRect Source)
 {
-    public bool IsValid => Id > 0;
-
-    public static TextureHandle None => default;
-}
-
-/// <summary>
-/// A named sub-rectangle of a texture atlas, plus a pivot describing the sprite's anchor.
-/// The pivot is expressed in [0, 1] across the source rectangle; the default (0.5, 1.0) is
-/// bottom-centre — the character's feet — which is what we position at the Home Position.
-/// </summary>
-public readonly record struct AtlasRegion(PixelRect Source, Vector2 Pivot)
-{
-    public AtlasRegion(PixelRect source)
-        : this(source, new Vector2(0.5f, 1f))
-    {
-    }
-
     public int Width => Source.Width;
     public int Height => Source.Height;
+    public bool IsEmpty => Source.IsEmpty;
 }
 
 /// <summary>
-/// A texture atlas: one GPU texture plus a lookup of named regions. Skins provide their own atlas,
-/// which is why the animation layer references regions by name rather than by pixel coordinates.
+/// A rasterised atlas: one pixel buffer plus named regions. Both built-in sheets are generated at
+/// runtime from character grids, so there is no image decoding and no third-party art.
 /// </summary>
-public sealed class SpriteAtlas(TextureHandle texture, int pixelWidth, int pixelHeight, IReadOnlyDictionary<string, AtlasRegion> regions)
+public sealed class SpriteSheet(int width, int height, Bgra32[] pixels, IReadOnlyDictionary<string, AtlasRegion> regions)
 {
-    public TextureHandle Texture { get; } = texture;
+    public int Width { get; } = width;
 
-    public int PixelWidth { get; } = pixelWidth;
+    public int Height { get; } = height;
 
-    public int PixelHeight { get; } = pixelHeight;
+    public Bgra32[] Pixels { get; } = pixels;
 
-    private readonly IReadOnlyDictionary<string, AtlasRegion> _regions = regions;
-
-    public IReadOnlyCollection<string> RegionNames => (IReadOnlyCollection<string>)_regions.Keys;
+    public IReadOnlyDictionary<string, AtlasRegion> Regions { get; } = regions;
 
     public AtlasRegion this[string name] =>
-        _regions.TryGetValue(name, out AtlasRegion region)
+        Regions.TryGetValue(name, out AtlasRegion region)
             ? region
-            : throw new KeyNotFoundException($"Sprite atlas has no region named '{name}'.");
+            : throw new KeyNotFoundException($"Sprite sheet has no region named '{name}'.");
 
-    public bool TryGet(string name, out AtlasRegion region) => _regions.TryGetValue(name, out region);
+    /// <summary>Tight bounds of the opaque pixels inside <paramref name="region"/>, relative to the region.</summary>
+    public PixelRect OpaqueBounds(AtlasRegion region)
+    {
+        PixelRect s = region.Source;
+        int minX = s.Width, minY = s.Height, maxX = -1, maxY = -1;
+        for (int y = 0; y < s.Height; y++)
+        {
+            int row = ((s.Y + y) * Width) + s.X;
+            for (int x = 0; x < s.Width; x++)
+            {
+                if (Pixels[row + x].IsOpaque)
+                {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+
+        return maxX < 0 ? default : PixelRect.FromLTRB(minX, minY, maxX + 1, maxY + 1);
+    }
 }

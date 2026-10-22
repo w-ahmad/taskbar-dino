@@ -1,18 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    TaskbarDino.Core — shared models, enums, interfaces, math and the event bus.
-    Deliberately targets plain net10.0 (NOT -windows) and references nothing:
-    this makes it physically impossible for the domain to depend on Windows APIs.
+    TaskbarDino.Core — everything that is pure logic: primitives, sprite/animation model, the dino's
+    behaviour (brain + movement), the runner game, settings model and the built-in pixel art.
+    Targets plain net10.0 and references nothing, so it physically cannot depend on Windows APIs,
+    which is what keeps it unit-testable on any machine.
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>TaskbarDino.Core</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
-
-  <ItemGroup>
-    <!-- Abstractions only: Core can accept an ILogger without taking a dependency on any concrete
-         logging implementation, keeping the domain free of infrastructure. -->
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-  </ItemGroup>
 
 </Project>

@@ -1,11 +1,7 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/TaskbarDino.Animation/TaskbarDino.Animation.csproj" />
-    <Project Path="src/TaskbarDino.App/TaskbarDino.App.csproj" />
     <Project Path="src/TaskbarDino.Core/TaskbarDino.Core.csproj" />
-    <Project Path="src/TaskbarDino.Game/TaskbarDino.Game.csproj" />
-    <Project Path="src/TaskbarDino.Rendering/TaskbarDino.Rendering.csproj" />
-    <Project Path="src/TaskbarDino.Windows/TaskbarDino.Windows.csproj" />
+    <Project Path="src/TaskbarDino/TaskbarDino.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/TaskbarDino.Tests/TaskbarDino.Tests.csproj" />

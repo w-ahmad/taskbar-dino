@@ -3,11 +3,6 @@ namespace TaskbarDino.Core.Primitives;
 /// <summary>An integer point in physical screen pixels.</summary>
 public readonly record struct PixelPoint(int X, int Y)
 {
-    public static PixelPoint Zero => default;
-
-    public static PixelPoint operator +(PixelPoint a, PixelPoint b) => new(a.X + b.X, a.Y + b.Y);
-    public static PixelPoint operator -(PixelPoint a, PixelPoint b) => new(a.X - b.X, a.Y - b.Y);
-
     public override string ToString() => $"({X}, {Y})";
 }
 
@@ -22,7 +17,6 @@ public readonly record struct PixelRect(int X, int Y, int Width, int Height)
     public int Right => X + Width;
     public int Bottom => Y + Height;
 
-    public PixelPoint Location => new(X, Y);
     public PixelPoint Center => new(X + (Width / 2), Y + (Height / 2));
     public bool IsEmpty => Width <= 0 || Height <= 0;
 
@@ -34,8 +28,9 @@ public readonly record struct PixelRect(int X, int Y, int Width, int Height)
 
     public bool Contains(int x, int y) => x >= Left && x < Right && y >= Top && y < Bottom;
 
-    /// <summary>Grows (or shrinks, for negative values) the rectangle by the given amount on each axis.</summary>
-    public PixelRect Inflate(int dx, int dy) => new(X - dx, Y - dy, Width + (2 * dx), Height + (2 * dy));
+    /// <summary>True when <paramref name="other"/> lies entirely inside this rectangle.</summary>
+    public bool Covers(PixelRect other) =>
+        Left <= other.Left && Top <= other.Top && Right >= other.Right && Bottom >= other.Bottom;
 
     public override string ToString() => $"[{X},{Y} {Width}x{Height}]";
 }
