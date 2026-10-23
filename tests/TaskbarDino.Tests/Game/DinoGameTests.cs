@@ -211,4 +211,21 @@ public class DinoGameTests
             Assert.Equal(slow.Obstacles[0].X, fast.Obstacles[0].X, precision: 2);
         }
     }
+    [Fact]
+    public void NoObstacle_SpawnsDuringTheOpeningGrace()
+    {
+        DinoGame game = NewGame();
+        Advance(game, GameConfig.FirstObstacleGraceSeconds - 0.1);
+        Assert.Empty(game.Obstacles);
+        Advance(game, 0.3);
+        Assert.NotEmpty(game.Obstacles);
+    }
+
+    [Theory]
+    [InlineData(100f, 1000f, false)]
+    [InlineData(499f, 1000f, false)]
+    [InlineData(501f, 1000f, true)]
+    [InlineData(900f, 1000f, true)]
+    public void Mirrors_WhenTheDinoIsRightOfCentre(float dinoX, float width, bool expected) =>
+        Assert.Equal(expected, DinoGame.ShouldMirror(dinoX, width));
 }

@@ -58,6 +58,9 @@ internal sealed unsafe class Renderer : IDisposable
         }
     }
 
+    /// <summary>Forces the WARP software rasteriser (<c>TASKBARDINO_WARP=1</c>): no GPU driver in the process, at some CPU cost per frame.</summary>
+    public static bool UseWarp { get; } = Environment.GetEnvironmentVariable("TASKBARDINO_WARP") == "1";
+
     public int Width { get; private set; }
 
     public int Height { get; private set; }
@@ -172,13 +175,26 @@ internal sealed unsafe class Renderer : IDisposable
     private void Initialize(HWND window)
     {
         ReadOnlySpan<D3D_FEATURE_LEVEL> levels = [D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_10_0];
-        const D3D11_CREATE_DEVICE_FLAG flags = D3D11_CREATE_DEVICE_FLAG.D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_FLAG.D3D11_CREATE_DEVICE_SINGLETHREADED;
+        // Single-threaded + no internal driver threading: the app draws a handful of sprites from one
+        // thread, so the driver's worker-thread pool would be pure overhead (threads + memory).
+        const D3D11_CREATE_DEVICE_FLAG flags =
+            D3D11_CREATE_DEVICE_FLAG.D3D11_CREATE_DEVICE_BGRA_SUPPORT |
+            D3D11_CREATE_DEVICE_FLAG.D3D11_CREATE_DEVICE_SINGLETHREADED |
+            D3D11_CREATE_DEVICE_FLAG.D3D11_CREATE_DEVICE_PREVENT_INTERNAL_THREADING_OPTIMIZATIONS;
 
-        ID3D11Device* device;
-        HRESULT hr = PInvoke.D3D11CreateDevice(null, D3D_DRIVER_TYPE.D3D_DRIVER_TYPE_HARDWARE, HMODULE.Null, flags, levels, PInvoke.D3D11_SDK_VERSION, &device, out _, null);
+        ID3D11Device* device = null;
+        HRESULT hr = new(unchecked((int)0x80004005)); // E_FAIL until a device exists
+        if (!UseWarp)
+        {
+            hr = PInvoke.D3D11CreateDevice(null, D3D_DRIVER_TYPE.D3D_DRIVER_TYPE_HARDWARE, HMODULE.Null, flags, levels, PInvoke.D3D11_SDK_VERSION, &device, out _, null);
+            if (hr.Failed)
+            {
+                Log.Warn($"Hardware Direct3D unavailable (0x{hr.Value:X8}); using WARP.");
+            }
+        }
+
         if (hr.Failed)
         {
-            Log.Warn($"Hardware Direct3D unavailable (0x{hr.Value:X8}); using WARP.");
             PInvoke.D3D11CreateDevice(null, D3D_DRIVER_TYPE.D3D_DRIVER_TYPE_WARP, HMODULE.Null, flags, levels, PInvoke.D3D11_SDK_VERSION, &device, out _, null).ThrowOnFailure();
         }
 

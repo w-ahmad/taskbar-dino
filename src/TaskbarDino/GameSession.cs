@@ -26,9 +26,11 @@ internal sealed class GameSession
     private SpriteSheet _artSheet = null!;
 
     private float _scale = 1f;
-    private float _dinoCenterX; // logical
+    private float _dinoCenterX; // logical, game space
     private float _fieldWidth;  // logical
+    private bool _mirrored;     // obstacles enter from the left on screen
     private bool _gameOverDrawn;
+    private bool _restartHintDrawn;
 
     public GameSession(Random rng) => _game = new DinoGame(rng);
 
@@ -44,11 +46,12 @@ internal sealed class GameSession
         _art = art;
         _artSheet = artSheet;
         _scale = MathF.Max(1f, scale);
-        _dinoCenterX = dinoCenterX;
         _fieldWidth = fieldWidth;
+        _mirrored = DinoGame.ShouldMirror(dinoCenterX, fieldWidth);
+        _dinoCenterX = _mirrored ? fieldWidth - dinoCenterX : dinoCenterX;
         _gameOverDrawn = false;
         _game.SeedHighScore(highScore);
-        _game.Reset(dinoCenterX, fieldWidth);
+        _game.Reset(_dinoCenterX, fieldWidth);
     }
 
     /// <summary>The renderer was recreated after a device loss: pick up the new textures.</summary>
@@ -80,21 +83,23 @@ internal sealed class GameSession
 
         if (_game.State == GameState.Crashed)
         {
-            if (_gameOverDrawn)
+            // Frozen scene: draw it once at the crash and once more when the restart hint appears, then
+            // sleep until input arrives — the game-over screen costs nothing while it waits.
+            if (_gameOverDrawn && (_restartHintDrawn || !_game.RestartReady))
             {
-                // Frozen: wake only for the restart lockout (so the restart hint can appear) or input.
                 return _game.RestartReady ? FrameOutcome.Idle : FrameOutcome.WakeIn(TimeSpan.FromSeconds(GameConfig.RestartLockoutSeconds));
             }
 
             _gameOverDrawn = true;
-        }
-        else
-        {
-            _gameOverDrawn = false;
+            _restartHintDrawn = _game.RestartReady;
+            Draw();
+            return _game.RestartReady ? FrameOutcome.Idle : FrameOutcome.WakeIn(TimeSpan.FromSeconds(GameConfig.RestartLockoutSeconds));
         }
 
+        _gameOverDrawn = false;
+        _restartHintDrawn = false;
         Draw();
-        return _game.State == GameState.Running ? FrameOutcome.Continuous : FrameOutcome.WakeIn(TimeSpan.FromSeconds(GameConfig.RestartLockoutSeconds));
+        return FrameOutcome.Continuous;
     }
 
     private void Draw()
@@ -125,10 +130,11 @@ internal sealed class GameSession
     {
         AtlasRegion tile = _artSheet[GameSpriteSheet.Ground];
         float tileW = GameConfig.GroundTileWidth;
-        float y = GameConfig.GroundY - 1f; // the line sits on the feet baseline
-        for (float x = -_game.GroundOffset; x < _fieldWidth; x += tileW)
+        float top = GameConfig.GroundY - 3f; // the line sits just under the feet; pebbles fill the last rows
+        float offset = _mirrored ? tileW - _game.GroundOffset : _game.GroundOffset;
+        for (float x = -offset; x < _fieldWidth; x += tileW)
         {
-            _renderer.Draw(_art, tile, new RectF(x * _scale, y * _scale, tile.Width * _scale, tile.Height * _scale));
+            _renderer.Draw(_art, tile, new RectF(x * _scale, (top - 1f) * _scale, tile.Width * _scale, tile.Height * _scale), _mirrored);
         }
     }
 
@@ -144,9 +150,9 @@ internal sealed class GameSession
 
         float w = GameConfig.DinoWidth * _scale;
         float h = GameConfig.DinoHeight * _scale;
-        float centerX = _dinoCenterX * _scale;
+        float centerX = DinoScreenCenter() * _scale;
         float feetY = (GameConfig.GroundY - _game.Trex.JumpOffset) * _scale;
-        _renderer.Draw(_dino, _dinoSheet[frame], new RectF(centerX - (w / 2f), feetY - h, w, h));
+        _renderer.Draw(_dino, _dinoSheet[frame], new RectF(centerX - (w / 2f), feetY - h, w, h), _mirrored);
     }
 
     private void DrawObstacle(Obstacle obstacle)
@@ -167,12 +173,12 @@ internal sealed class GameSession
     private void DrawScoreBubble()
     {
         AtlasRegion bubble = _artSheet[GameSpriteSheet.Bubble];
-        float left = Math.Clamp(_dinoCenterX - (bubble.Width / 2f), 0f, MathF.Max(0f, _fieldWidth - bubble.Width));
+        float left = Math.Clamp(DinoScreenCenter() - (bubble.Width / 2f), 0f, MathF.Max(0f, _fieldWidth - bubble.Width));
 
         // Just above the dino's head, following it up when it jumps.
         float headY = GameConfig.GroundY - _game.Trex.JumpOffset - GameConfig.DinoHeight;
         float top = MathF.Max(0f, headY - 3f - bubble.Height);
-        DrawArt(GameSpriteSheet.Bubble, left, top);
+        DrawArt(GameSpriteSheet.Bubble, left, top, mirrorPosition: false);
 
         int glyph = Math.Max(1, (int)MathF.Round(_scale * 0.9f)); // integer glyph scale keeps the 1px font gaps
         float lineH = GameSpriteSheet.GlyphHeight * glyph;
@@ -185,7 +191,7 @@ internal sealed class GameSession
     private void DrawGameOver()
     {
         int glyph = Math.Max(1, (int)MathF.Round(_scale * 1.3f));
-        float cx = _dinoCenterX * _scale;
+        float cx = DinoScreenCenter() * _scale;
         float y = 4f * _scale;
         float textW = DrawText("GAME OVER", cx, y, glyph);
         AtlasRegion restart = _artSheet[GameSpriteSheet.Restart];
@@ -218,10 +224,17 @@ internal sealed class GameSession
         return width;
     }
 
-    private void DrawArt(string name, float logicalX, float logicalY)
+    /// <summary>Maps a game-space X (left edge of something <paramref name="width"/> wide) to screen space.</summary>
+    private float ScreenX(float gameX, float width) => _mirrored ? _fieldWidth - gameX - width : gameX;
+
+    private float DinoScreenCenter() => ScreenX(_dinoCenterX - (GameConfig.DinoWidth / 2f), GameConfig.DinoWidth) + (GameConfig.DinoWidth / 2f);
+
+    private void DrawArt(string name, float logicalX, float logicalY, bool mirrorPosition = true)
     {
         AtlasRegion region = _artSheet[name];
         // Art cells include a 1px outline border, so offset by one unit to keep the body where the game thinks it is.
-        _renderer.Draw(_art, region, new RectF((logicalX - 1f) * _scale, (logicalY - 1f) * _scale, region.Width * _scale, region.Height * _scale));
+        float bodyWidth = region.Width - 2f;
+        float x = mirrorPosition ? ScreenX(logicalX, bodyWidth) : logicalX;
+        _renderer.Draw(_art, region, new RectF((x - 1f) * _scale, (logicalY - 1f) * _scale, region.Width * _scale, region.Height * _scale), _mirrored && mirrorPosition);
     }
 }

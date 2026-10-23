@@ -293,9 +293,27 @@ internal sealed unsafe class TrayIcon : IDisposable
 
         System.Drawing.Point cursor;
         _ = PInvoke.GetCursorPos(&cursor);
-        _ = PInvoke.SetForegroundWindow(_hwnd); // so the menu dismisses on an outside click
+
+        // A popup menu only takes keyboard input and dismisses on an outside click if its owner is the
+        // foreground window. Our click was swallowed by a hook, so Windows won't grant foreground to us
+        // directly; attach to the current foreground thread's input queue for the duration of the menu,
+        // then hand focus straight back to the app the user was using.
+        HWND previous = PInvoke.GetForegroundWindow();
+        uint previousThread = previous.IsNull ? 0 : PInvoke.GetWindowThreadProcessId(previous, null);
+        uint ownThread = PInvoke.GetCurrentThreadId();
+        bool attached = previousThread != 0 && previousThread != ownThread && PInvoke.AttachThreadInput(previousThread, ownThread, true);
+        _ = PInvoke.SetForegroundWindow(_hwnd);
         BOOL result = PInvoke.TrackPopupMenuEx(menu, TpmRightButton | TpmReturnCmd | TpmBottomAlign, cursor.X, cursor.Y, _hwnd, null);
         _ = PInvoke.PostMessage(_hwnd, PInvoke.WM_NULL, default, default); // per MSDN: lets the menu close cleanly
+        if (!previous.IsNull && PInvoke.IsWindow(previous))
+        {
+            _ = PInvoke.SetForegroundWindow(previous); // never leave the user's app without focus
+        }
+
+        if (attached)
+        {
+            _ = PInvoke.AttachThreadInput(previousThread, ownThread, false);
+        }
 
         _ = PInvoke.DestroyMenu(personality);
         _ = PInvoke.DestroyMenu(sizes);

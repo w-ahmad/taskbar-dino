@@ -23,6 +23,7 @@ public sealed class DinoGame
     private float _fieldWidth = 400f;
     private float _speed;
     private float _crashTimer;
+    private float _graceTimer;
     private float _nextObstacleGap;
     private float _nextCloudGap;
     private long _stepCount;
@@ -56,6 +57,13 @@ public sealed class DinoGame
 
     /// <summary>Pterodactyl wing frame (0/1).</summary>
     public int WingFrame => (int)(_stepCount / GameConfig.WingFrameInterval % 2);
+
+    /// <summary>
+    /// Obstacles always travel from +X toward the dino in game space. When the dino sits in the right
+    /// half of the screen the renderer mirrors the stage so they enter from the left instead, which
+    /// keeps the longer run-up (and reaction time) whichever side of the taskbar the dino is on.
+    /// </summary>
+    public static bool ShouldMirror(float dinoCenterX, float fieldWidth) => dinoCenterX > fieldWidth / 2f;
 
     /// <summary>Seeds the high score from persisted settings before the first game.</summary>
     public void SeedHighScore(int highScore) => HighScore = Math.Max(HighScore, Math.Max(0, highScore));
@@ -147,10 +155,9 @@ public sealed class DinoGame
         _speed = GameConfig.StartSpeed;
         Score = 0;
         _crashTimer = 0f;
+        _graceTimer = GameConfig.FirstObstacleGraceSeconds;
         State = GameState.Running;
-
-        // First obstacle starts comfortably far away so the run doesn't ambush you.
-        _nextObstacleGap = MathF.Max(140f, (_fieldWidth - Trex.X) * 0.7f);
+        _nextObstacleGap = 0f;
     }
 
     private void AdvanceObstacles()
@@ -178,6 +185,12 @@ public sealed class DinoGame
             {
                 rightmostEdge = MathF.Max(rightmostEdge, o.X + o.TotalWidth);
             }
+        }
+
+        if (_graceTimer > 0f)
+        {
+            _graceTimer -= GameConfig.FrameSeconds;
+            return;
         }
 
         if (_obstacles.Count == 0 || _fieldWidth - rightmostEdge >= _nextObstacleGap)

@@ -102,6 +102,7 @@ AppendMenu
 TrackPopupMenuEx
 DestroyMenu
 SetForegroundWindow
+AttachThreadInput
 GetCursorPos
 CreateIconIndirect
 CreateBitmap

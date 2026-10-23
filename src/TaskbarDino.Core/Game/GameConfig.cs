@@ -62,6 +62,9 @@ public static class GameConfig
     /// <summary>Restart presses are ignored this long after a crash so the game-over screen is seen.</summary>
     public const float RestartLockoutSeconds = 0.45f;
 
+    /// <summary>No obstacle spawns for this long after a (re)start, so the player has a beat to get ready.</summary>
+    public const float FirstObstacleGraceSeconds = 1.2f;
+
     // --- Animation cadence (frames per sprite swap) ---
     public const int RunFrameInterval = 6;
     public const int WingFrameInterval = 10;
