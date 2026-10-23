@@ -188,5 +188,5 @@ public sealed class DinoBrain
         _reactionTimer = Range(1.5f, 3f);
     }
 
-    private float Range(float min, float max) => min + ((float)_rng.NextDouble() * (max - min));
+    private float Range(float min, float max) => _rng.NextRange(min, max);
 }

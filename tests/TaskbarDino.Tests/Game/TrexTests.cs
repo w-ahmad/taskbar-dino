@@ -25,7 +25,7 @@ public class TrexTests
     }
 
     [Fact]
-    public void StartJump_Rises_ThenLands()
+    public void StartJump_WhenGrounded_RisesThenLands()
     {
         var trex = new Trex();
         trex.StartJump();
@@ -45,7 +45,7 @@ public class TrexTests
     }
 
     [Fact]
-    public void HoldingJump_GoesHigher_ThanATap()
+    public void Step_HeldJump_GoesHigherThanATap()
     {
         float tapPeak = RunJumpTrackingPeak(holdKey: false);
         float holdPeak = RunJumpTrackingPeak(holdKey: true);
@@ -55,7 +55,7 @@ public class TrexTests
     }
 
     [Fact]
-    public void StartJump_MidAir_IsIgnored_NoDoubleBoost()
+    public void StartJump_MidAir_IsIgnored()
     {
         var trex = new Trex();
         trex.StartJump();
@@ -72,7 +72,7 @@ public class TrexTests
     }
 
     [Fact]
-    public void DuckMidAir_LandsSooner()
+    public void SetDuck_MidAir_LandsSooner()
     {
         int Airtime(bool drop)
         {
@@ -96,7 +96,7 @@ public class TrexTests
     }
 
     [Fact]
-    public void Bounds_SitOnGround_AtX()
+    public void Bounds_Grounded_SitOnGroundAtX()
     {
         var trex = new Trex { X = 40f };
         RectF bounds = trex.Bounds;
@@ -107,7 +107,7 @@ public class TrexTests
     }
 
     [Fact]
-    public void Kill_SetsDeadPose_AndBlocksJumping()
+    public void Kill_Always_SetsDeadPoseAndBlocksJumping()
     {
         var trex = new Trex();
         trex.Kill();

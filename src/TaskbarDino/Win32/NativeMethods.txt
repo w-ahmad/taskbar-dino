@@ -172,3 +172,7 @@ GetDpiForWindow
 EndMenu
 SetCursorPos
 keybd_event
+IsZoomed
+GetAsyncKeyState
+GetSystemMetrics
+GetMenuItemCount

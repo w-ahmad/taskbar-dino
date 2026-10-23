@@ -353,6 +353,11 @@ internal sealed unsafe class TrayIcon : IDisposable
     private static void OnPreviewKeys(HWND hwnd, uint message, nuint timerId, uint time)
     {
         _ = PInvoke.KillTimer(HWND.Null, timerId);
+        if (_instance is not { _menuOpen: true })
+        {
+            return; // the menu already closed; never type into whatever is in front
+        }
+
         foreach (byte vk in new byte[] { 0x28, 0x28, 0x28, 0x28, 0x27 })
         {
             PInvoke.keybd_event(vk, 0, 0, 0);
@@ -412,7 +417,7 @@ internal sealed unsafe class TrayIcon : IDisposable
             _ = PInvoke.AppendMenu(menu, MENU_ITEM_FLAGS.MF_POPUP, (nuint)(nint)submenu.Value, p);
         }
 
-        SetIcon(menu, (uint)(nint)submenu.Value, false, icon);
+        SetIcon(menu, (uint)(PInvoke.GetMenuItemCount(menu) - 1), byPosition: true, icon);
     }
 
     private static void SetIcon(HMENU menu, uint item, bool byPosition, HBITMAP icon)

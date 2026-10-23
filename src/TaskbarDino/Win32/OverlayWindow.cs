@@ -29,7 +29,6 @@ internal sealed unsafe class OverlayWindow : IDisposable
     private readonly HINSTANCE _hInstance;
     private readonly uint _taskbarCreatedMessage;
     private HWND _hwnd;
-    private PixelRect _bounds;
 
     public OverlayWindow()
     {
@@ -44,8 +43,6 @@ internal sealed unsafe class OverlayWindow : IDisposable
     }
 
     public HWND Handle => _hwnd;
-
-    public PixelRect Bounds => _bounds;
 
     public bool IsVisible { get; private set; }
 
@@ -69,7 +66,6 @@ internal sealed unsafe class OverlayWindow : IDisposable
 
     public void SetBounds(PixelRect bounds)
     {
-        _bounds = bounds;
         _ = PInvoke.SetWindowPos(_hwnd, HWND.HWND_TOPMOST, bounds.X, bounds.Y, bounds.Width, bounds.Height, SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE | SET_WINDOW_POS_FLAGS.SWP_NOOWNERZORDER);
     }
 

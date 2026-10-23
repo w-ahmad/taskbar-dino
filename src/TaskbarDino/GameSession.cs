@@ -109,14 +109,13 @@ internal sealed class GameSession
         {
             // Frozen scene: draw it once at the crash and once more when the restart hint appears, then
             // sleep until input arrives — the game-over screen costs nothing while it waits.
-            if (_gameOverDrawn && (_restartHintDrawn || !_game.RestartReady))
+            if (!_gameOverDrawn || (!_restartHintDrawn && _game.RestartReady))
             {
-                return _game.RestartReady ? FrameOutcome.Idle : FrameOutcome.WakeIn(TimeSpan.FromSeconds(GameConfig.RestartLockoutSeconds));
+                _gameOverDrawn = true;
+                _restartHintDrawn = _game.RestartReady;
+                Draw();
             }
 
-            _gameOverDrawn = true;
-            _restartHintDrawn = _game.RestartReady;
-            Draw();
             return _game.RestartReady ? FrameOutcome.Idle : FrameOutcome.WakeIn(TimeSpan.FromSeconds(GameConfig.RestartLockoutSeconds));
         }
 

@@ -1,3 +1,4 @@
+using TaskbarDino.Core.Behavior;
 using TaskbarDino.Core.Primitives;
 
 namespace TaskbarDino.Core.Game;
@@ -268,7 +269,7 @@ public sealed class DinoGame
 
     private float RandomCloudGap() => Range(GameConfig.CloudMinGap, GameConfig.CloudMaxGap);
 
-    private float Range(float min, float max) => min + ((float)_rng.NextDouble() * (max - min));
+    private float Range(float min, float max) => _rng.NextRange(min, max);
 
     private bool HasCollision()
     {

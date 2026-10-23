@@ -21,7 +21,7 @@ public class MoveControllerTests
     }
 
     [Fact]
-    public void Teleport_IsInstant_AndIdle()
+    public void Teleport_Anywhere_IsInstantAndIdle()
     {
         var mc = Grounded(100f);
         Assert.Equal(100f, mc.FeetX);
@@ -30,7 +30,7 @@ public class MoveControllerTests
     }
 
     [Fact]
-    public void MoveTo_NearTarget_Walks_FacingRight()
+    public void MoveTo_NearTarget_WalksFacingRight()
     {
         var mc = Grounded(0f);
         mc.MoveTo(50f);
@@ -82,7 +82,7 @@ public class MoveControllerTests
     }
 
     [Fact]
-    public void Arrives_AtTarget_ThenIdles()
+    public void Update_UntilArrival_SettlesOnTargetAndIdles()
     {
         var mc = Grounded(0f);
         mc.MoveTo(120f);
@@ -95,7 +95,7 @@ public class MoveControllerTests
     }
 
     [Fact]
-    public void Retargeting_MidMove_ChangesDestination_WithoutQueueing()
+    public void MoveTo_MidMove_ChangesDestinationWithoutQueueing()
     {
         var mc = Grounded(0f);
         mc.MoveTo(500f);
@@ -111,7 +111,7 @@ public class MoveControllerTests
     }
 
     [Fact]
-    public void DoesNotOvershoot_OnLargeDelta()
+    public void Update_LargeDelta_DoesNotOvershoot()
     {
         var mc = Grounded(0f);
         mc.MoveTo(10f);
@@ -121,7 +121,7 @@ public class MoveControllerTests
     }
 
     [Fact]
-    public void Jump_RisesThenLands()
+    public void MoveTo_WithJump_RisesThenLands()
     {
         var mc = Grounded(0f);
         mc.MoveTo(0f, jump: true);
@@ -137,7 +137,7 @@ public class MoveControllerTests
     }
 
     [Fact]
-    public void FallFrom_DropsToGround()
+    public void FallFrom_Height_DropsToGround()
     {
         var mc = Grounded(0f);
         mc.FallFrom(200f);
@@ -149,7 +149,7 @@ public class MoveControllerTests
     }
 
     [Fact]
-    public void Speeds_ScaleWithDpi()
+    public void Update_HigherUiScale_MovesProportionallyFaster()
     {
         var a = Grounded(0f, 1f);
         var b = Grounded(0f, 2f);

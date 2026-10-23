@@ -78,7 +78,7 @@ internal sealed class CompanionRuntime : IDisposable
     private float _menuPreviewIn = -1f;     // > 0: countdown to the diagnostic menu preview
 
     // Pending requests from hooks/tray, applied on the loop thread.
-    private bool _menuRequested, _enterGame, _exitGame, _layoutDirty;
+    private bool _menuRequested, _enterGame, _exitGame, _layoutDirty, _foregroundChanged;
 
     // Last drawn picture, to skip redundant frames.
     private PixelRect _drawnWindow;
@@ -179,8 +179,22 @@ internal sealed class CompanionRuntime : IDisposable
         _loop.Run(Tick);
     }
 
+    /// <summary>Writes the game's best to settings if it improved; returns whether it did.</summary>
+    private bool PersistHighScore()
+    {
+        if (_game.HighScore <= _settings.Current.HighScore)
+        {
+            return false;
+        }
+
+        int best = _game.HighScore;
+        _settings.Update(s => s with { HighScore = best });
+        return true;
+    }
+
     public void Dispose()
     {
+        PersistHighScore(); // exiting mid-game from the tray or a session end must not lose a new best
         _keyboard.Disable();
         _dinoTexture?.Dispose();
         _artTexture?.Dispose();
@@ -207,6 +221,11 @@ internal sealed class CompanionRuntime : IDisposable
             OnLayoutChanged();
         }
 
+        if (_foregroundChanged)
+        {
+            HandleForegroundChange();
+        }
+
         if (_menuRequested)
         {
             _menuRequested = false;
@@ -228,7 +247,13 @@ internal sealed class CompanionRuntime : IDisposable
         switch (_mode)
         {
             case Mode.Game:
-                return _game.Tick(time);
+                FrameOutcome gameOutcome = _game.Tick(time);
+                if (_game.IsCrashed)
+                {
+                    PersistHighScore(); // a crash is the moment a run's score is final
+                }
+
+                return gameOutcome;
 
             case Mode.Hidden:
                 return TickHidden();
@@ -314,14 +339,20 @@ internal sealed class CompanionRuntime : IDisposable
 
         if (_dragging)
         {
+            if (_mouse.EndDragIfButtonReleased())
+            {
+                return FrameOutcome.Continuous; // the release handler has already re-homed the dino
+            }
+
             _animation.SetState(DinoState.Held);
             frame = _animation.CurrentFrame;
             flip = false;
             window = new PixelRect(_cursor.X - (_windowWidth / 2), _cursor.Y - _margin - (_dinoHeight / 2), _windowWidth, _windowHeight);
-            // Draws happen on pointer events (the hook wakes the loop); nothing to schedule.
+            outcome = FrameOutcome.WakeIn(TimeSpan.FromSeconds(0.5)); // draws happen on pointer events; the wake only re-checks the button
         }
         else if (_move.IsBusy)
         {
+            _hovering = false; // the dino walked out from under the cursor; the next move re-evaluates
             _animation.SetState(_move.State);
             _animation.Update(animDt);
             frame = _animation.CurrentFrame;
@@ -473,7 +504,7 @@ internal sealed class CompanionRuntime : IDisposable
             return false;
         }
 
-        PixelRect o = _opaque[_drawnFrame.Region.Source.X / DinoSpriteSheet.FrameWidth];
+        PixelRect o = _opaque[FrameIndex(_drawnFrame.Region)];
         float left = _drawnFlip ? DinoSpriteSheet.FrameWidth - o.Right : o.Left;
         float lx = screen.X - _drawnWindow.X - _margin;
         float ly = screen.Y - _drawnWindow.Y - _margin;
@@ -484,14 +515,18 @@ internal sealed class CompanionRuntime : IDisposable
         return lx >= x0 && lx <= x1 && ly >= y0 && ly <= y1;
     }
 
+    /// <summary>Index of a 48×48 frame cell in the sheet (row-major over the shelves) — the key into <see cref="_opaque"/>.</summary>
+    private static int FrameIndex(in AtlasRegion region) =>
+        (region.Source.Y / DinoSpriteSheet.FrameHeight * (DinoSpriteSheet.AtlasWidth / DinoSpriteSheet.FrameWidth)) + (region.Source.X / DinoSpriteSheet.FrameWidth);
+
     private void ComputeOpaqueBounds()
     {
-        _opaque = new PixelRect[DinoSpriteSheet.AtlasWidth / DinoSpriteSheet.FrameWidth * (DinoSpriteSheet.AtlasHeight / DinoSpriteSheet.FrameHeight + 1)];
+        _opaque = new PixelRect[DinoSpriteSheet.AtlasWidth / DinoSpriteSheet.FrameWidth * ((DinoSpriteSheet.AtlasHeight / DinoSpriteSheet.FrameHeight) + 1)];
         foreach (AtlasRegion region in _dinoSheet.Regions.Values)
         {
             if (region.Width == DinoSpriteSheet.FrameWidth && region.Height == DinoSpriteSheet.FrameHeight)
             {
-                int index = (region.Source.Y / DinoSpriteSheet.FrameHeight * (DinoSpriteSheet.AtlasWidth / DinoSpriteSheet.FrameWidth)) + (region.Source.X / DinoSpriteSheet.FrameWidth);
+                int index = FrameIndex(region);
                 if (index < _opaque.Length)
                 {
                     _opaque[index] = _dinoSheet.OpaqueBounds(region);
@@ -535,8 +570,12 @@ internal sealed class CompanionRuntime : IDisposable
         _mouse.Clicked += _ =>
         {
             _brain.Poke();
-            _animation.Trigger(DinoReaction.Happy);
-            _move.MoveTo(_move.FeetX, jump: true); // a happy hop in place
+            if (!_move.IsBusy && _nextLeg is null)
+            {
+                _animation.Trigger(DinoReaction.Happy);
+                _move.MoveTo(_move.FeetX, jump: true); // a happy hop in place — never retargets a trip in progress
+            }
+
             _loop.Wake();
         };
         _mouse.DoubleClicked += _ => RequestGame();
@@ -588,6 +627,14 @@ internal sealed class CompanionRuntime : IDisposable
 
     private void OnForegroundChanged(ActiveWindow? active)
     {
+        // Called inside the WinEvent callback: only record and wake; Tick does the real work.
+        _foregroundChanged = true;
+        _loop.Wake();
+    }
+
+    private void HandleForegroundChange()
+    {
+        _foregroundChanged = false;
         if (_mode == Mode.Companion && _settings.Current.PauseInFullscreen && Fullscreen.IsActive(out _))
         {
             Suspend();
@@ -595,7 +642,7 @@ internal sealed class CompanionRuntime : IDisposable
         }
 
         _brain.Poke();
-        RequestHome(active);
+        _follow.Request(_foreground.Current);
     }
 
     private void RequestHome(ActiveWindow? active)
@@ -693,8 +740,9 @@ internal sealed class CompanionRuntime : IDisposable
 
         if (_mode == Mode.Companion)
         {
+            float feetX = _move.FeetX;
             _move = new MoveController(refreshed.DpiScale);
-            _move.Teleport(Math.Clamp(_move.FeetX, refreshed.Bounds.Left, refreshed.Bounds.Right));
+            _move.Teleport(Math.Clamp(feetX, refreshed.Bounds.Left, refreshed.Bounds.Right));
             _drawnValid = false;
             RequestHome(_foreground.Current);
         }
@@ -842,11 +890,7 @@ internal sealed class CompanionRuntime : IDisposable
         }
 
         _keyboard.Disable();
-        bool newBest = _game.HighScore > _settings.Current.HighScore;
-        if (newBest)
-        {
-            _settings.Update(s => s with { HighScore = _game.HighScore });
-        }
+        bool newBest = PersistHighScore();
 
         _mode = Mode.Companion;
         _windowWidth = _windowHeight = 0; // force SetMonitor to resize the surface back down

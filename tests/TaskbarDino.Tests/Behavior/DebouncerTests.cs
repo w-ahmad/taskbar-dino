@@ -5,7 +5,7 @@ namespace TaskbarDino.Tests.Behavior;
 public class DebouncerTests
 {
     [Fact]
-    public void Commits_LatestValue_OnceDelayElapses()
+    public void Update_AfterDelayWithTwoRequests_CommitsLatestValueOnce()
     {
         var d = new Debouncer<string>(0.3f);
         d.Request("a");
@@ -19,7 +19,7 @@ public class DebouncerTests
     }
 
     [Fact]
-    public void RapidRequests_RestartTheDelay()
+    public void Request_RepeatedWithinDelay_RestartsTheDelay()
     {
         var d = new Debouncer<int>(0.3f);
         for (int i = 0; i < 5; i++)
@@ -33,7 +33,7 @@ public class DebouncerTests
     }
 
     [Fact]
-    public void Commits_OnlyOnce_PerBurst()
+    public void Update_AfterCommit_DoesNotCommitAgain()
     {
         var d = new Debouncer<int>(0.1f);
         d.Request(1);
@@ -43,7 +43,7 @@ public class DebouncerTests
     }
 
     [Fact]
-    public void Cancel_DropsThePendingValue()
+    public void Cancel_WithPendingValue_DropsIt()
     {
         var d = new Debouncer<int>(0.1f);
         d.Request(1);

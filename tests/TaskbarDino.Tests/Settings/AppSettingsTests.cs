@@ -7,7 +7,7 @@ public class AppSettingsTests
     private static readonly DateTimeOffset Now = new(2026, 10, 23, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void Defaults_AreSensible()
+    public void Constructor_Default_HasSensibleValues()
     {
         var s = new AppSettings();
         Assert.Equal(DinoTheme.Accent, s.Theme);
@@ -19,7 +19,7 @@ public class AppSettingsTests
     }
 
     [Fact]
-    public void Hide_UsesWallClock_AndExpires()
+    public void IsHiddenAt_WallClock_ExpiresOnTime()
     {
         AppSettings s = new AppSettings() with { HiddenUntil = Now.AddHours(1) };
 
@@ -30,14 +30,14 @@ public class AppSettingsTests
     }
 
     [Fact]
-    public void Hide_IgnoresAnAbsurdFutureValue_FromAClockChange()
+    public void IsHiddenAt_AbsurdFutureValue_IsIgnored()
     {
         AppSettings s = new AppSettings() with { HiddenUntil = Now.AddDays(30) };
         Assert.False(s.IsHiddenAt(Now));
     }
 
     [Fact]
-    public void Hide_SurvivesSleepAndResume_BecauseItIsAbsolute()
+    public void IsHiddenAt_AfterLongSleep_HasExpired()
     {
         AppSettings s = new AppSettings() with { HiddenUntil = Now.AddHours(4) };
         // The machine slept for five hours: the hide has simply elapsed.

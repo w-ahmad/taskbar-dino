@@ -5,7 +5,7 @@ namespace TaskbarDino.Tests.Primitives;
 public class PixelRectTests
 {
     [Fact]
-    public void FromLTRB_ComputesWidthAndHeight()
+    public void FromLTRB_Edges_ComputesWidthAndHeight()
     {
         PixelRect r = PixelRect.FromLTRB(10, 20, 110, 70);
 
@@ -18,7 +18,7 @@ public class PixelRectTests
     }
 
     [Fact]
-    public void Center_IsMidpoint()
+    public void Center_Always_IsMidpoint()
     {
         var r = new PixelRect(0, 0, 100, 40);
         Assert.Equal(new PixelPoint(50, 20), r.Center);
@@ -46,7 +46,7 @@ public class PixelRectTests
     }
 
     [Fact]
-    public void IsEmpty_WhenNonPositiveArea()
+    public void IsEmpty_NonPositiveArea_IsTrue()
     {
         Assert.True(new PixelRect(0, 0, 0, 10).IsEmpty);
         Assert.True(new PixelRect(0, 0, 10, 0).IsEmpty);

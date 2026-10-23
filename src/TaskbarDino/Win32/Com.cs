@@ -26,17 +26,4 @@ internal static unsafe class Com
         ((IUnknown*)obj)->QueryInterface(&guid, &result).ThrowOnFailure();
         return (T*)result;
     }
-
-    /// <summary>Converts and frees a BSTR.</summary>
-    public static string TakeString(BSTR bstr)
-    {
-        if (bstr.Value is null)
-        {
-            return string.Empty;
-        }
-
-        string s = bstr.ToString();
-        Windows.Win32.PInvoke.SysFreeString(bstr);
-        return s;
-    }
 }

@@ -1,6 +1,7 @@
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.Shell;
+using Windows.Win32.UI.WindowsAndMessaging;
 
 using TaskbarDino.Core.Primitives;
 
@@ -48,12 +49,23 @@ internal static unsafe class Fullscreen
 
         MonitorInfo m = Monitors.FromWindow(foreground);
         var window = PixelRect.FromLTRB(rect.left, rect.top, rect.right, rect.bottom);
-        if (window.Covers(m.Bounds))
+        if (!window.Covers(m.Bounds))
         {
-            monitor = m;
-            return true;
+            return false;
         }
 
-        return false;
+        // Where the taskbar reserves no space (auto-hide, or none on this monitor) an ordinary maximised
+        // window also covers the whole monitor; only a borderless, non-maximised window counts there.
+        if (m.WorkArea == m.Bounds)
+        {
+            var style = (WINDOW_STYLE)PInvoke.GetWindowLongPtr(foreground, WINDOW_LONG_PTR_INDEX.GWL_STYLE);
+            if (PInvoke.IsZoomed(foreground) || (style & WINDOW_STYLE.WS_CAPTION) == WINDOW_STYLE.WS_CAPTION)
+            {
+                return false;
+            }
+        }
+
+        monitor = m;
+        return true;
     }
 }

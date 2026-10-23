@@ -15,7 +15,7 @@ public class DinoBrainTests
     }
 
     [Fact]
-    public void StartsIdle_WithNoPendingReaction()
+    public void Constructor_Default_StartsIdleWithNoPendingReaction()
     {
         var brain = new DinoBrain(new Random(1));
         Assert.Equal(DinoState.Idle, brain.State);
@@ -23,7 +23,7 @@ public class DinoBrainTests
     }
 
     [Fact]
-    public void EmitsReactions_WhileAwake()
+    public void Update_WhileAwake_EmitsReactions()
     {
         var brain = new DinoBrain(new Random(4242));
         int reactions = 0;
@@ -32,7 +32,7 @@ public class DinoBrainTests
     }
 
     [Fact]
-    public void NonBlinkReactions_NeverRepeatBackToBack()
+    public void TryDequeueReaction_NonBlink_NeverRepeatsBackToBack()
     {
         var brain = new DinoBrain(new Random(99), ActivityLevel.Lively);
         DinoReaction? last = null;
@@ -51,7 +51,7 @@ public class DinoBrainTests
     }
 
     [Fact]
-    public void FallsAsleep_AfterProlongedIdle_ThenWakes()
+    public void Update_AfterProlongedIdle_SleepsThenWakes()
     {
         var brain = new DinoBrain(new Random(7));
         bool slept = false, wokeAfter = false;
@@ -67,7 +67,7 @@ public class DinoBrainTests
     }
 
     [Fact]
-    public void Poke_WakesASleepingDino()
+    public void Poke_WhileAsleep_Wakes()
     {
         var brain = new DinoBrain(new Random(7));
         Advance(brain, 200, 0.5, b => { if (!b.IsAsleep) { } });
@@ -80,7 +80,7 @@ public class DinoBrainTests
     }
 
     [Fact]
-    public void CalmIsLessChattyThanLively()
+    public void SetActivity_Calm_EmitsFewerReactionsThanLively()
     {
         int Count(ActivityLevel level)
         {
@@ -94,7 +94,7 @@ public class DinoBrainTests
     }
 
     [Fact]
-    public void TimeUntilNextEvent_IsNeverNegative()
+    public void TimeUntilNextEvent_Always_IsNeverNegative()
     {
         var brain = new DinoBrain(new Random(99));
         Advance(brain, 150, 0.25, b =>
@@ -105,7 +105,7 @@ public class DinoBrainTests
     }
 
     [Fact]
-    public void HugeDelta_IsClamped()
+    public void Update_HugeDelta_IsClamped()
     {
         var brain = new DinoBrain(new Random(3));
         brain.Update(10_000f); // system resume

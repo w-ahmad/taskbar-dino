@@ -64,7 +64,7 @@ public class DinoGameTests
     }
 
     [Fact]
-    public void NewGame_StartsRunning_NoWaiting()
+    public void Reset_NewGame_StartsRunning()
     {
         DinoGame game = NewGame();
         Assert.Equal(GameState.Running, game.State);
@@ -72,7 +72,7 @@ public class DinoGameTests
     }
 
     [Fact]
-    public void JumpDown_WhenGrounded_MakesTheDinoJump()
+    public void OnJumpDown_WhenGrounded_Jumps()
     {
         DinoGame game = NewGame();
         game.OnJumpDown();
@@ -80,7 +80,7 @@ public class DinoGameTests
     }
 
     [Fact]
-    public void StandingStill_CrashesWithoutScoring()
+    public void Update_StandingStill_CrashesWithoutScoring()
     {
         DinoGame game = NewGame();
         RunUntilCrash(game);
@@ -89,7 +89,7 @@ public class DinoGameTests
     }
 
     [Fact]
-    public void Crash_FreezesTheScene_UntilRestart()
+    public void Update_AfterCrash_FreezesTheScene()
     {
         DinoGame game = NewGame();
         RunUntilCrash(game);
@@ -104,7 +104,7 @@ public class DinoGameTests
     }
 
     [Fact]
-    public void Restart_IsLockedOut_BrieflyAfterCrash_ThenAccepted()
+    public void OnJumpDown_AfterCrash_RestartsOnlyAfterLockout()
     {
         DinoGame game = NewGame();
         RunUntilCrash(game);
@@ -124,7 +124,7 @@ public class DinoGameTests
     }
 
     [Fact]
-    public void DodgingObstacles_IncrementsScore_AndKeepsHighScore()
+    public void Update_DodgingObstacles_ScoresAndKeepsHighScore()
     {
         DinoGame game = NewGame(seed: 7);
         PlayBot(game, 60 * 40);
@@ -140,7 +140,7 @@ public class DinoGameTests
     }
 
     [Fact]
-    public void Duck_LowersTheCollisionBox_OnTheGroundOnly()
+    public void OnDuck_OnGroundOnly_LowersTheCollisionBox()
     {
         DinoGame game = NewGame();
         game.OnDuck(true);
@@ -155,7 +155,7 @@ public class DinoGameTests
     }
 
     [Fact]
-    public void SeedHighScore_SetsAFloor()
+    public void SeedHighScore_Value_SetsAFloor()
     {
         DinoGame game = NewGame();
         game.SeedHighScore(500);
@@ -163,7 +163,7 @@ public class DinoGameTests
     }
 
     [Fact]
-    public void Update_ClampsHugeDelta_NoRunawaySteps()
+    public void Update_HugeDelta_DoesNotRunAway()
     {
         DinoGame game = NewGame();
         game.Update(5f);
@@ -171,7 +171,7 @@ public class DinoGameTests
     }
 
     [Fact]
-    public void Deterministic_ForAGivenSeed()
+    public void Update_SameSeed_IsDeterministic()
     {
         DinoGame a = NewGame(seed: 99);
         DinoGame b = NewGame(seed: 99);
@@ -186,7 +186,7 @@ public class DinoGameTests
     }
 
     [Fact]
-    public void Decor_ScrollsAndRecycles()
+    public void Update_OverTime_ScrollsAndRecyclesDecor()
     {
         DinoGame game = NewGame();
         Advance(game, 10);
@@ -197,7 +197,7 @@ public class DinoGameTests
     }
 
     [Fact]
-    public void FrameRateIndependent_SameResultAt30And120Hz()
+    public void Update_DifferentFrameRates_SameResult()
     {
         DinoGame slow = NewGame(seed: 5);
         DinoGame fast = NewGame(seed: 5);
@@ -212,7 +212,7 @@ public class DinoGameTests
         }
     }
     [Fact]
-    public void NoObstacle_SpawnsDuringTheOpeningGrace()
+    public void Update_DuringOpeningGrace_SpawnsNoObstacle()
     {
         DinoGame game = NewGame();
         Advance(game, GameConfig.FirstObstacleGraceSeconds - 0.1);
@@ -226,6 +226,6 @@ public class DinoGameTests
     [InlineData(499f, 1000f, false)]
     [InlineData(501f, 1000f, true)]
     [InlineData(900f, 1000f, true)]
-    public void Mirrors_WhenTheDinoIsRightOfCentre(float dinoX, float width, bool expected) =>
+    public void ShouldMirror_DinoPosition_MirrorsRightOfCentre(float dinoX, float width, bool expected) =>
         Assert.Equal(expected, DinoGame.ShouldMirror(dinoX, width));
 }

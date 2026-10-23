@@ -12,7 +12,7 @@ public class SpriteSheetTests
     [InlineData(DinoTheme.Accent)]
     [InlineData(DinoTheme.ChromeGray)]
     [InlineData(DinoTheme.Gold)]
-    public void EveryDinoFrame_HasArt_InsideItsCell(DinoTheme theme)
+    public void Create_AnyTheme_EveryFrameHasArtInsideItsCell(DinoTheme theme)
     {
         SpriteSheet sheet = DinoSpriteSheet.Create(theme, new Rgb(0, 0x78, 0xD4));
         Assert.Equal(sheet.Width * sheet.Height, sheet.Pixels.Length);
@@ -26,7 +26,7 @@ public class SpriteSheetTests
     }
 
     [Fact]
-    public void StandingFrames_ShareTheSameFootprint_SoTheDinoDoesNotJitter()
+    public void OpaqueBounds_StandingFrames_ShareTheSameFootprint()
     {
         SpriteSheet sheet = DinoSpriteSheet.Create(DinoTheme.Green);
         PixelRect idle = sheet.OpaqueBounds(sheet[DinoSpriteSheet.Idle]);
@@ -39,7 +39,7 @@ public class SpriteSheetTests
     }
 
     [Fact]
-    public void DuckFrames_AreLowerThanStanding()
+    public void OpaqueBounds_DuckFrames_AreLowerThanStanding()
     {
         SpriteSheet sheet = DinoSpriteSheet.Create(DinoTheme.Blue);
         PixelRect idle = sheet.OpaqueBounds(sheet[DinoSpriteSheet.Idle]);
@@ -49,7 +49,7 @@ public class SpriteSheetTests
     }
 
     [Fact]
-    public void Themes_ProduceTheSameMask_WithDifferentColours()
+    public void Create_DifferentThemes_SameMaskDifferentColours()
     {
         SpriteSheet a = DinoSpriteSheet.Create(DinoTheme.Red);
         SpriteSheet b = DinoSpriteSheet.Create(DinoTheme.Purple);
@@ -64,7 +64,7 @@ public class SpriteSheetTests
     }
 
     [Fact]
-    public void AccentTheme_UsesTheAccentColour()
+    public void Create_AccentTheme_UsesTheAccentColour()
     {
         var accent = new Rgb(0x10, 0x80, 0x40);
         SpriteSheet sheet = DinoSpriteSheet.Create(DinoTheme.Accent, accent);
@@ -72,7 +72,7 @@ public class SpriteSheetTests
     }
 
     [Fact]
-    public void Icon_IsFilledAndOpaqueInTheMiddle()
+    public void CreateIconPixels_Default_IsOpaqueInTheMiddle()
     {
         Bgra32[] icon = DinoSpriteSheet.CreateIconPixels(DinoTheme.ChromeGray, 32);
         Assert.Equal(32 * 32, icon.Length);
@@ -80,7 +80,7 @@ public class SpriteSheetTests
     }
 
     [Fact]
-    public void AnimationClips_CoverEveryStateAndReaction()
+    public void BuildClips_Always_CoverEveryStateAndReaction()
     {
         SpriteSheet sheet = DinoSpriteSheet.Create(DinoTheme.Green);
         var states = DinoAnimations.BuildStateClips(sheet);
@@ -92,7 +92,7 @@ public class SpriteSheetTests
     }
 
     [Fact]
-    public void GameSheet_HasOutlinedSprites_AndTheWholeFont()
+    public void Create_GameSheet_HasOutlinedSpritesAndTheWholeFont()
     {
         SpriteSheet sheet = GameSpriteSheet.Create();
         foreach (char c in "0123456789GAMEOVERHI")

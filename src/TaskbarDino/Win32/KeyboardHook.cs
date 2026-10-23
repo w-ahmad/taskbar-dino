@@ -36,8 +36,6 @@ internal sealed unsafe class KeyboardHook : IDisposable
     /// <summary>Esc pressed — leave Game Mode.</summary>
     public event Action? ExitPressed;
 
-    public bool IsEnabled => !_hook.IsNull;
-
     public void Enable()
     {
         if (!_hook.IsNull)

@@ -90,3 +90,27 @@ Host captures after the art and behaviour rework, taken without injecting input 
 - Sandbox input injection cannot hold keys, double-click a non-focusable window, or act while no
   window is foreground, so duck, double-click and some menu paths rely on unit tests and code review.
 - No multi-monitor, DPI-change, Explorer-restart or sleep scenario was automated.
+
+## Code-review fixes (2026-10-23, later)
+
+A two-axis review (standards + spec) of the whole change set found eight behavioural defects and a
+few interop risks; all confirmed ones were fixed and re-tested (76 unit tests, host smoke run,
+Native AOT publish):
+
+- Hit test used only the frame's column, so poses on the second and third sheet shelves (walk3/4,
+  jump, tail-up, yawn, sleep, scratch, stretch, duck, eat) tested against the wrong box.
+- A DPI/resolution/work-area change teleported the dino to the monitor's left edge (fresh controller
+  read before it was positioned).
+- Full-screen detection treated any maximised window as full screen on monitors whose taskbar
+  reserves no space (auto-hide, or none); now requires a borderless, non-maximised window there.
+- A click no longer retargets a relocation in progress; the happy hop plays only when the dino is
+  settled.
+- A single click is reported only after the double-click interval passes (with the system
+  double-click distance), so a double-click no longer also plays the click reaction.
+- A drag whose button-up never reached the hook ends itself when the button is seen released.
+- The hover flag clears while the dino is walking, so the idle poll resumes without a mouse move.
+- Full-screen detection and re-homing moved out of the WinEvent callback into the frame loop.
+- The high score is written at game over and on any exit path, not only on Esc.
+- `MouseHook.Start` is idempotent; submenu icons are attached by position instead of a truncated
+  HMENU; the menu-preview key timer does nothing once the menu has closed.
+- Test names follow Method_Scenario_Expectation; dead members removed; shared `Random.NextRange`.

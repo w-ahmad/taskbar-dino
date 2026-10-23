@@ -18,7 +18,7 @@ public static class GameConfig
     /// <summary>Feet baseline — the dino and ground obstacles rest on the taskbar (strip bottom).</summary>
     public const float GroundY = 180f;
 
-    // --- Dino (the companion sprite, a 24×24 frame) ---
+    // --- Dino (the companion sprite, a 48×48 frame) ---
     public const float DinoWidth = 48f;
     public const float DinoHeight = 48f;
     public const float DuckHeight = 28f;

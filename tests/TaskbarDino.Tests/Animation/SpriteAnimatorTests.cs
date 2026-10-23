@@ -13,7 +13,7 @@ public class SpriteAnimatorTests
         new("two", [new AnimationFrame(Region(0), 0.5f), new AnimationFrame(Region(10), 0.5f)], loop);
 
     [Fact]
-    public void StaticClip_NeverAdvances_AndNeverFinishes()
+    public void Update_StaticClip_NeverAdvancesOrFinishes()
     {
         var animator = new SpriteAnimator(AnimationClip.Static("idle", Region(0)));
 
@@ -25,7 +25,7 @@ public class SpriteAnimatorTests
     }
 
     [Fact]
-    public void Advances_ToNextFrame_AfterFrameDuration()
+    public void Update_AfterFrameDuration_AdvancesToNextFrame()
     {
         var animator = new SpriteAnimator(TwoFrame(loop: false));
 
@@ -38,7 +38,7 @@ public class SpriteAnimatorTests
     }
 
     [Fact]
-    public void NonLoopingClip_LatchesOnLastFrame_AndFinishes()
+    public void Update_NonLoopingClip_LatchesOnLastFrameAndFinishes()
     {
         var animator = new SpriteAnimator(TwoFrame(loop: false));
 
@@ -50,7 +50,7 @@ public class SpriteAnimatorTests
     }
 
     [Fact]
-    public void LoopingClip_WrapsAround_AndNeverFinishes()
+    public void Update_LoopingClip_WrapsAndNeverFinishes()
     {
         var animator = new SpriteAnimator(TwoFrame(loop: true));
 
@@ -60,7 +60,7 @@ public class SpriteAnimatorTests
     }
 
     [Fact]
-    public void Play_ResetsState()
+    public void Play_AfterFinish_ResetsState()
     {
         var animator = new SpriteAnimator(TwoFrame(loop: false));
         animator.Update(2f);
@@ -73,7 +73,7 @@ public class SpriteAnimatorTests
     }
 
     [Fact]
-    public void Controller_ReactionOverridesBase_ThenYields()
+    public void Trigger_Reaction_OverridesBaseThenYields()
     {
         var states = new Dictionary<DinoState, AnimationClip> { [DinoState.Idle] = AnimationClip.Static("idle", Region(0)) };
         var reactions = new Dictionary<DinoReaction, AnimationClip> { [DinoReaction.Blink] = new("blink", [new AnimationFrame(Region(10), 0.1f)], loop: false) };
@@ -89,7 +89,7 @@ public class SpriteAnimatorTests
     }
 
     [Fact]
-    public void Controller_MovementState_CancelsReaction()
+    public void SetState_MovementState_CancelsReaction()
     {
         var states = new Dictionary<DinoState, AnimationClip>
         {
