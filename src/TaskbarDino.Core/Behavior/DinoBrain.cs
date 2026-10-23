@@ -22,6 +22,9 @@ public sealed class DinoBrain
         (DinoReaction.Yawn, 1.5f),
         (DinoReaction.Stretch, 1.5f),
         (DinoReaction.Curious, 1.5f),
+        (DinoReaction.Eat, 1.2f),
+        (DinoReaction.Play, 1.2f),
+        (DinoReaction.Celebrate, 0.4f),
     ];
 
     private readonly Random _rng;

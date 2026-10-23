@@ -15,13 +15,13 @@ public enum DinoSize
 
 public static class DinoSizes
 {
-    /// <summary>Base sprite magnification at 100% DPI (whole numbers stay crisp; Small is an in-between).</summary>
+    /// <summary>Base sprite magnification at 100% DPI. The art is 48 px tall, so Medium is 1:1 (48 px) and Large 72 px.</summary>
     public static float ScaleFactor(this DinoSize size) => size switch
     {
-        DinoSize.Tiny => 1.0f,
-        DinoSize.Small => 1.5f,
-        DinoSize.Medium => 2.0f,
-        DinoSize.Large => 3.0f,
-        _ => 1.5f,
+        DinoSize.Tiny => 0.5f,
+        DinoSize.Small => 0.75f,
+        DinoSize.Medium => 1.0f,
+        DinoSize.Large => 1.5f,
+        _ => 1.0f,
     };
 }

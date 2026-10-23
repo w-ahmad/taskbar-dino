@@ -13,34 +13,34 @@ public static class GameConfig
     public const float FrameSeconds = 1f / Fps;
 
     /// <summary>Logical height of the transparent play strip above the taskbar.</summary>
-    public const float Height = 90f;
+    public const float Height = 180f;
 
     /// <summary>Feet baseline — the dino and ground obstacles rest on the taskbar (strip bottom).</summary>
-    public const float GroundY = 90f;
+    public const float GroundY = 180f;
 
     // --- Dino (the companion sprite, a 24×24 frame) ---
-    public const float DinoWidth = 24f;
-    public const float DinoHeight = 24f;
-    public const float DuckHeight = 14f;
-    public const float Gravity = 0.72f;              // downward accel, units/frame²
-    public const float InitialJumpVelocity = 6.4f;   // a tap peaks ≈ 28 units
+    public const float DinoWidth = 48f;
+    public const float DinoHeight = 48f;
+    public const float DuckHeight = 28f;
+    public const float Gravity = 1.44f;              // downward accel, units/frame²
+    public const float InitialJumpVelocity = 12.8f;  // a tap peaks ≈ 56 units
     public const float HoldGravityFactor = 0.42f;    // weaker gravity while the key is held and rising…
-    public const float MaxHoldHeight = 46f;          // …up to this hard ceiling
-    public const float DropVelocity = -7f;           // pressing Down mid-air slams the dino down
+    public const float MaxHoldHeight = 92f;          // …up to this hard ceiling
+    public const float DropVelocity = -14f;          // pressing Down mid-air slams the dino down
 
     // --- Difficulty / scrolling ---
-    public const float StartSpeed = 3.4f;            // units/frame
-    public const float MaxSpeed = 8.5f;
-    public const float Acceleration = 0.0011f;
+    public const float StartSpeed = 6.8f;            // units/frame
+    public const float MaxSpeed = 17f;
+    public const float Acceleration = 0.0022f;
     public const float GapCoefficient = 0.7f;
 
     // --- Obstacles ---
-    public const float CactusSmallWidth = 12f;
-    public const float CactusSmallHeight = 18f;
-    public const float CactusLargeWidth = 16f;
-    public const float CactusLargeHeight = 24f;
-    public const float PterodactylWidth = 24f;
-    public const float PterodactylHeight = 16f;
+    public const float CactusSmallWidth = 24f;
+    public const float CactusSmallHeight = 36f;
+    public const float CactusLargeWidth = 32f;
+    public const float CactusLargeHeight = 48f;
+    public const float PterodactylWidth = 48f;
+    public const float PterodactylHeight = 32f;
     public const int MaxCactusGroup = 2;             // a held jump clears two
     public const int BirdMinScore = 5;               // birds start appearing after a few dodges
 
@@ -48,16 +48,16 @@ public static class GameConfig
     /// Pterodactyl altitudes (bottom edge). Low: jump over. Mid: duck under (or a high jump). High:
     /// run under — a jump would hit it.
     /// </summary>
-    public static readonly float[] BirdBottoms = [GroundY - 3f, GroundY - 17f, GroundY - 30f];
+    public static readonly float[] BirdBottoms = [GroundY - 6f, GroundY - 34f, GroundY - 60f];
 
     // --- Decor ---
     public const float CloudSpeedFactor = 0.2f;      // parallax: clouds drift at a fifth of the ground speed
     public const int MaxClouds = 5;
-    public const float CloudMinGap = 90f;
-    public const float CloudMaxGap = 260f;
-    public const float CloudMinY = 4f;
-    public const float CloudMaxY = 36f;
-    public const float GroundTileWidth = 48f;
+    public const float CloudMinGap = 180f;
+    public const float CloudMaxGap = 520f;
+    public const float CloudMinY = 8f;
+    public const float CloudMaxY = 72f;
+    public const float GroundTileWidth = 96f;
 
     /// <summary>Restart presses are ignored this long after a crash so the game-over screen is seen.</summary>
     public const float RestartLockoutSeconds = 0.45f;

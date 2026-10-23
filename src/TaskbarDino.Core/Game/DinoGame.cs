@@ -71,7 +71,7 @@ public sealed class DinoGame
     /// <summary>(Re)starts a run: the dino sits at <paramref name="dinoCenterX"/>; obstacles cross a field of the given width.</summary>
     public void Reset(float dinoCenterX, float fieldWidth)
     {
-        _fieldWidth = MathF.Max(120f, fieldWidth);
+        _fieldWidth = MathF.Max(240f, fieldWidth);
         Trex.X = dinoCenterX - (GameConfig.DinoWidth / 2f);
         _clouds.Clear();
         _nextCloudGap = RandomCloudGap() * 0.3f;
@@ -177,7 +177,7 @@ public sealed class DinoGame
                 HighScore = Math.Max(HighScore, Score);
             }
 
-            if (o.X + o.TotalWidth < -8f)
+            if (o.X + o.TotalWidth < -16f)
             {
                 _obstacles.RemoveAt(i);
             }
@@ -210,7 +210,7 @@ public sealed class DinoGame
         {
             Cloud c = _clouds[i];
             c.X -= cloudStep;
-            if (c.X < -40f)
+            if (c.X < -80f)
             {
                 _clouds.RemoveAt(i);
             }
@@ -262,7 +262,7 @@ public sealed class DinoGame
     private float RandomObstacleGap()
     {
         // Wider gaps at higher speed keep obstacles reachable; a randomised extra span adds variety.
-        float baseGap = 60f + (_speed * 12f);
+        float baseGap = 120f + (_speed * 12f);
         return baseGap + ((float)_rng.NextDouble() * baseGap * GameConfig.GapCoefficient);
     }
 

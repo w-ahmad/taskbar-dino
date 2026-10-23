@@ -52,6 +52,26 @@ public class MoveControllerTests
     }
 
     [Fact]
+    public void Travel_WalksShort_RunsMedium_LeapsFar()
+    {
+        var walk = Grounded(0f);
+        walk.Travel(150f);
+        walk.Update(0.01f);
+        Assert.Equal(DinoState.Walking, walk.State);
+
+        var run = Grounded(0f);
+        run.Travel(400f);
+        run.Update(0.01f);
+        Assert.Equal(DinoState.Running, run.State);
+        Assert.Equal(0f, run.JumpHeight);
+
+        var leap = Grounded(0f);
+        leap.Travel(MoveController.HopDistance + 10f);
+        leap.Update(0.01f);
+        Assert.True(leap.JumpHeight > 0f);
+    }
+
+    [Fact]
     public void MoveTo_LeftTarget_FacesLeft()
     {
         var mc = Grounded(200f);

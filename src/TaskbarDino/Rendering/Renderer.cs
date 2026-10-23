@@ -65,6 +65,9 @@ internal sealed unsafe class Renderer : IDisposable
     /// <summary>True when drawing with WARP (by setting, override, or because no GPU device exists).</summary>
     public bool Software { get; private set; }
 
+    /// <summary>Linear instead of nearest-neighbour sampling — only for downscaled sprites, where dropped pixels would break lines.</summary>
+    public bool Smooth { get; set; }
+
     public int Width { get; private set; }
 
     public int Height { get; private set; }
@@ -133,7 +136,7 @@ internal sealed unsafe class Renderer : IDisposable
             _context->SetTransform(&m);
         }
 
-        _context->DrawBitmap((ID2D1Bitmap*)texture.Bitmap, &dst, 1f, D2D1_BITMAP_INTERPOLATION_MODE.D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR, &src);
+        _context->DrawBitmap((ID2D1Bitmap*)texture.Bitmap, &dst, 1f, Smooth ? D2D1_BITMAP_INTERPOLATION_MODE.D2D1_BITMAP_INTERPOLATION_MODE_LINEAR : D2D1_BITMAP_INTERPOLATION_MODE.D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR, &src);
 
         if (flipX)
         {

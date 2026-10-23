@@ -11,7 +11,7 @@ public class AppSettingsTests
     {
         var s = new AppSettings();
         Assert.Equal(DinoTheme.Accent, s.Theme);
-        Assert.Equal(DinoSize.Small, s.Size);
+        Assert.Equal(DinoSize.Medium, s.Size);
         Assert.True(s.PauseInFullscreen);
         Assert.False(s.StartWithWindows);
         Assert.Null(s.HiddenUntil);

@@ -9,13 +9,17 @@ it costs effectively nothing while it sits there.
 
 ![Game Mode](docs/images/game.png)
 
+![Context menu](docs/images/menu.png)
+
 ## Features
 
 - **Follows the active app.** When you switch to Visual Studio, a browser or File Explorer, the dino
   hops over to that app's taskbar button (found through UI Automation, so pinned apps, Store apps
   and Edge web apps work). With no app active it waits on the Start button. Works across monitors.
 - **A little personality.** Blinks, glances around, wags its tail, scratches, stretches, yawns,
-  gets curious, and falls asleep after a while. Its head follows your cursor when you hover.
+  gets curious, nibbles a sprout, plays with a ball, celebrates, and lies down to sleep after a
+  while. Its head follows your cursor when you hover. Short trips are walked, longer ones run, and
+  only far ones start with a leap.
 - **Mouse play.** Click it for a happy hop; drag it anywhere on the desktop and it falls, looks
   around and runs back home; right-click for the menu.
 - **Game Mode.** Double-click (or *Start Game* in the menu) and the taskbar becomes a runner: jump
@@ -24,8 +28,9 @@ it costs effectively nothing while it sits there.
   are drawn.
 - **Stays out of the way.** Click-through overlay, never takes focus, hidden from Alt+Tab, hides
   itself behind full-screen apps, and can be told to hide for an hour or four.
-- **Six colours plus one that follows your Windows accent colour**, four sizes, three personality
-  levels, optional start with Windows.
+- **Six colours plus one that follows your Windows accent colour**, four sizes (Medium is the
+  art's native 48 px), three personality levels, optional start with Windows. The menu uses the
+  Windows 11 Fluent icon font.
 - **Ultra-light.** Native AOT, no third-party runtime dependencies, adaptive rendering that draws
   only when the picture changes and sleeps otherwise. See [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 
@@ -71,7 +76,7 @@ Everything is in the right-click menu:
 - **Hide for 1 Hour / 4 Hours** (and **Show Dino Now** while hidden). The timer is wall-clock, so it
   survives restarts and sleep.
 - **Dino Color**: Windows Accent, Chrome Gray, Green, Blue, Red, Purple, Gold
-- **Dino Size**: Tiny, Small, Medium, Large
+- **Dino Size**: Tiny (24 px), Small (36 px), Medium (48 px, native), Large (72 px) — all at 100 % DPI; sizes scale with the monitor's DPI
 - **Personality**: Calm, Normal, Lively (how often it does things)
 - **Pause in Full-Screen Apps**: hide while a game, video or presentation is full screen
 - **Low-Memory Rendering (CPU)**: draw with the WARP software rasteriser instead of the GPU. Same
@@ -96,9 +101,13 @@ dotnet test TaskbarDino.slnx -c Release       # unit tests (pure logic, runs on 
 `dotnet run src\TaskbarDino\TaskbarDino.csproj` runs the framework-dependent build for development.
 Add `--log` to write `%LOCALAPPDATA%\TaskbarDino\taskbardino.log`.
 
-Developer tools: `dotnet run tools/sprite-preview.cs -- <dir>` renders the sprite sheets to PNG;
-`dotnet run tools/make-icon.cs -- src/TaskbarDino/Assets/TaskbarDino.ico` regenerates the app icon
-from the dino art.
+Developer tools: `python tools/dino-art.py` regenerates the pose grids (`DinoArt.cs`, `GameArt.cs`)
+from the shapes that define the dino; `dotnet run tools/sprite-preview.cs -- <dir>` renders the
+sprite sheets to PNG; `dotnet run tools/make-icon.cs -- src/TaskbarDino/Assets/TaskbarDino.ico`
+regenerates the app icon from the dino art. `TaskbarDino.exe --menu-preview` opens the context
+menu by itself for a screenshot; `--game --autopilot` runs the game unattended for benchmarks.
+
+![Sprite sheet](docs/images/sprites.png)
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it is put together, and
 [docs/VALIDATION.md](docs/VALIDATION.md) for what was tested and how.

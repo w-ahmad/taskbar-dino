@@ -5,24 +5,28 @@ using TaskbarDino.Core.Settings;
 namespace TaskbarDino.Core.Content;
 
 /// <summary>
-/// The built-in, original pixel-art dino plus its little effect sprites (heart, zzz, "?", "!").
-/// One body is authored as a character grid; eyes, legs and overlays are composed programmatically
-/// per frame. Colours come from a per-theme three-tone palette, so a theme switch just re-rasterises.
-/// Everything is generated at runtime — no third-party art, no image decoding. Frames are 24×24.
+/// The built-in pixel-art dino (48×48 frames) plus its effect sprites (heart, zzz, "?", "!", ball,
+/// sprout, confetti). The poses come from <see cref="DinoArt"/> (generated from shapes so every
+/// pose shares the same body); eyes and effects are composed here. Colours come from a per-theme
+/// three-tone palette, so a theme switch just re-rasterises. No image decoding, no third-party art.
 /// </summary>
 public static class DinoSpriteSheet
 {
-    public const int FrameWidth = 24;
-    public const int FrameHeight = 24;
-    public const int AtlasWidth = 24 * 8; // 8 frames per shelf
+    public const int FrameWidth = 48;
+    public const int FrameHeight = 48;
+    public const int AtlasWidth = 48 * 8; // 8 frames per shelf
 
     // Frame names
     public const string Idle = "idle";
     public const string Blink = "blink";
     public const string LookLeft = "look_left";
     public const string LookRight = "look_right";
+    public const string Happy = "happy";
+    public const string Dead = "dead";
     public const string Walk1 = "walk1";
     public const string Walk2 = "walk2";
+    public const string Walk3 = "walk3";
+    public const string Walk4 = "walk4";
     public const string Jump = "jump";
     public const string TailUp = "tail_up";
     public const string Yawn = "yawn";
@@ -32,8 +36,7 @@ public static class DinoSpriteSheet
     public const string Stretch = "stretch";
     public const string Duck1 = "duck1";
     public const string Duck2 = "duck2";
-    public const string Dead = "dead";
-    public const string Happy = "happy";
+    public const string Eat = "eat";
 
     // Effect sprites (drawn over the dino by the animation layer)
     public const string FxHeart = "fx_heart";
@@ -41,22 +44,42 @@ public static class DinoSpriteSheet
     public const string FxZzz2 = "fx_zzz2";
     public const string FxQuestion = "fx_question";
     public const string FxExclaim = "fx_exclaim";
+    public const string FxBall1 = "fx_ball1";
+    public const string FxBall2 = "fx_ball2";
+    public const string FxSprout1 = "fx_sprout1";
+    public const string FxSprout2 = "fx_sprout2";
+    public const string FxSprout3 = "fx_sprout3";
+    public const string FxConfetti1 = "fx_confetti1";
+    public const string FxConfetti2 = "fx_confetti2";
 
-    private static readonly Bgra32 EyeWhite = Bgra32.Rgb(0xF2, 0xF2, 0xF2);
-    private static readonly Bgra32 Pupil = Bgra32.Rgb(0x1E, 0x1E, 0x1E);
+    private static readonly Bgra32 EyeWhite = Bgra32.Rgb(0xF4, 0xF4, 0xF4);
+    private static readonly Bgra32 Pupil = Bgra32.Rgb(0x1C, 0x1C, 0x1C);
     private static readonly Bgra32 DarkInk = Bgra32.Rgb(0x2A, 0x2A, 0x2A);
     private static readonly Bgra32 LightInk = Bgra32.Rgb(0xF6, 0xF6, 0xF6);
-    private static readonly Bgra32 HeartRed = Bgra32.Rgb(0xE5, 0x3E, 0x5A);
-    private static readonly Bgra32 HeartShine = Bgra32.Rgb(0xFF, 0x9A, 0xAC);
+
+    private static readonly PixelArt.Ink EffectInk = new(new[]
+    {
+        ('k', DarkInk),
+        ('r', Bgra32.Rgb(0xE5, 0x3E, 0x5A)),   // heart
+        ('s', Bgra32.Rgb(0xFF, 0x9A, 0xAC)),   // heart shine
+        ('b', Bgra32.Rgb(0xF2, 0x7A, 0xA8)),   // ball
+        ('w', Bgra32.Rgb(0xFF, 0xF0, 0xF5)),   // ball shine
+        ('g', Bgra32.Rgb(0x4C, 0xAF, 0x50)),   // sprout leaves
+        ('d', Bgra32.Rgb(0x2E, 0x7D, 0x32)),   // sprout stem
+        ('y', Bgra32.Rgb(0xFF, 0xC1, 0x07)),   // confetti
+        ('c', Bgra32.Rgb(0x29, 0xB6, 0xF6)),
+        ('m', Bgra32.Rgb(0xAB, 0x47, 0xBC)),
+        ('o', Bgra32.Rgb(0xFF, 0x70, 0x43)),
+    });
 
     private static readonly Dictionary<DinoTheme, Palette> Palettes = new()
     {
-        [DinoTheme.ChromeGray] = new(Bgra32.Rgb(0x35, 0x35, 0x35), Bgra32.Rgb(0x53, 0x53, 0x53), Bgra32.Rgb(0x76, 0x76, 0x76)),
-        [DinoTheme.Green] = new(Bgra32.Rgb(0x27, 0x5E, 0x2A), Bgra32.Rgb(0x49, 0x9E, 0x4C), Bgra32.Rgb(0x7B, 0xCF, 0x7E)),
-        [DinoTheme.Blue] = new(Bgra32.Rgb(0x27, 0x47, 0x7A), Bgra32.Rgb(0x44, 0x78, 0xC4), Bgra32.Rgb(0x7F, 0xAC, 0xEC)),
-        [DinoTheme.Red] = new(Bgra32.Rgb(0x75, 0x27, 0x27), Bgra32.Rgb(0xC2, 0x4A, 0x4A), Bgra32.Rgb(0xE8, 0x80, 0x80)),
-        [DinoTheme.Purple] = new(Bgra32.Rgb(0x4C, 0x33, 0x75), Bgra32.Rgb(0x86, 0x59, 0xBE), Bgra32.Rgb(0xB8, 0x97, 0xDE)),
-        [DinoTheme.Gold] = new(Bgra32.Rgb(0x75, 0x58, 0x1A), Bgra32.Rgb(0xC2, 0x9A, 0x38), Bgra32.Rgb(0xE8, 0xC8, 0x6E)),
+        [DinoTheme.ChromeGray] = new(Bgra32.Rgb(0x2F, 0x2F, 0x2F), Bgra32.Rgb(0x53, 0x53, 0x53), Bgra32.Rgb(0x7A, 0x7A, 0x7A)),
+        [DinoTheme.Green] = new(Bgra32.Rgb(0x24, 0x5B, 0x27), Bgra32.Rgb(0x49, 0x9E, 0x4C), Bgra32.Rgb(0x82, 0xD3, 0x85)),
+        [DinoTheme.Blue] = new(Bgra32.Rgb(0x23, 0x43, 0x76), Bgra32.Rgb(0x44, 0x78, 0xC4), Bgra32.Rgb(0x86, 0xB0, 0xEE)),
+        [DinoTheme.Red] = new(Bgra32.Rgb(0x70, 0x24, 0x24), Bgra32.Rgb(0xC2, 0x4A, 0x4A), Bgra32.Rgb(0xEC, 0x88, 0x88)),
+        [DinoTheme.Purple] = new(Bgra32.Rgb(0x47, 0x2F, 0x70), Bgra32.Rgb(0x86, 0x59, 0xBE), Bgra32.Rgb(0xBD, 0x9E, 0xE2)),
+        [DinoTheme.Gold] = new(Bgra32.Rgb(0x70, 0x54, 0x18), Bgra32.Rgb(0xC2, 0x9A, 0x38), Bgra32.Rgb(0xEC, 0xCD, 0x78)),
     };
 
     private static readonly Rgb AccentFallback = new(0x2E, 0x78, 0xD4);
@@ -73,182 +96,48 @@ public static class DinoSpriteSheet
         Happy,
     }
 
-    // ---- Art (facing right; 'o' outline, '#' body, '=' belly) ----
+    /// <summary>A frame: a pose grid, which eye to paint, and the pose name used to place the eye.</summary>
+    private readonly record struct Frame(string Name, string Pose, string[] Grid, Eye Eye);
 
-    private static readonly string[] Body =
+    private static readonly Frame[] Frames =
     [
-        "........................",
-        ".............ooooooo....",
-        "............o#######o...",
-        "............o#######o...",
-        "............o#######o...",
-        "............o#######o...",
-        "............o#######o...",
-        "............o###oooo....",
-        "...........o#######o....",
-        "......oo...o######o.....",
-        ".....o##o..o#######o....",
-        "....o##ooooo########o...",
-        "...o############ooo#o...",
-        "..o##############o##o...",
-        "..o#################o...",
-        "..o################o....",
-        "..o###==========##o.....",
-        "..o##============##o....",
-        "..o##############o......",
+        new(Idle, "idle", DinoArt.Idle, Eye.Open),
+        new(Blink, "idle", DinoArt.Idle, Eye.Closed),
+        new(LookLeft, "idle", DinoArt.Idle, Eye.Left),
+        new(LookRight, "idle", DinoArt.Idle, Eye.Right),
+        new(Happy, "tail_up", DinoArt.TailUp, Eye.Happy),
+        new(Dead, "idle", DinoArt.Idle, Eye.Dead),
+        new(Walk1, "walk1", DinoArt.Walk1, Eye.Open),
+        new(Walk2, "walk2", DinoArt.Walk2, Eye.Open),
+        new(Walk3, "walk3", DinoArt.Walk3, Eye.Open),
+        new(Walk4, "walk4", DinoArt.Walk4, Eye.Open),
+        new(Jump, "jump", DinoArt.Jump, Eye.Open),
+        new(TailUp, "tail_up", DinoArt.TailUp, Eye.Open),
+        new(Yawn, "yawn", DinoArt.Yawn, Eye.Closed),
+        new(Sleep, "lie", DinoArt.Lie, Eye.Closed),
+        new(Scratch1, "scratch1", DinoArt.Scratch1, Eye.Open),
+        new(Scratch2, "scratch2", DinoArt.Scratch2, Eye.Open),
+        new(Stretch, "stretch", DinoArt.Stretch, Eye.Closed),
+        new(Duck1, "duck1", DinoArt.Duck1, Eye.Open),
+        new(Duck2, "duck2", DinoArt.Duck2, Eye.Open),
+        new(Eat, "eat", DinoArt.Eat, Eye.Open),
     ];
 
-    private static readonly string[] BodyTailUp =
-    [
-        "........................",
-        ".............ooooooo....",
-        "............o#######o...",
-        "............o#######o...",
-        "............o#######o...",
-        "............o#######o...",
-        "............o#######o...",
-        "............o###oooo....",
-        "....oo.....o#######o....",
-        "...o##o....o######o.....",
-        "...o##oo...o#######o....",
-        "....o##ooooo########o...",
-        "...o############ooo#o...",
-        "..o##############o##o...",
-        "..o#################o...",
-        "..o################o....",
-        "..o###==========##o.....",
-        "..o##============##o....",
-        "..o##############o......",
-    ];
-
-    private static readonly string[] BodyYawn =
-    [
-        "........................",
-        ".............ooooooo....",
-        "............o#######o...",
-        "............o#######o...",
-        "............o#######o...",
-        "............o#######o...",
-        "............o###oooo....",
-        "............o###o...o...",
-        "...........o####oooo....",
-        "......oo...o######o.....",
-        ".....o##o..o#######o....",
-        "....o##ooooo########o...",
-        "...o############ooo#o...",
-        "..o##############o##o...",
-        "..o#################o...",
-        "..o################o....",
-        "..o###==========##o.....",
-        "..o##============##o....",
-        "..o##############o......",
-    ];
-
-    // Low, stretched-out posture for ducking under a pterodactyl (bottom-aligned, 14 rows tall).
-    private static readonly string[] BodyDuck =
-    [
-        "..............ooooooo...",
-        ".............o#######o..",
-        "....oo......o#########o.",
-        "...o##oooooo#####oooo#o.",
-        "..o###################o.",
-        "..o##################o..",
-        "..o#####==========##o...",
-        "...o####==========#o....",
-        "....oo############o.....",
-    ];
-
-    private static readonly string[] LegsStand =
-    [
-        "....##.....##...........",
-        "....##.....##...........",
-        "....##.....##...........",
-        "...o##o...o##o..........",
-        "...####...####..........",
-    ];
-
-    private static readonly string[] LegsWalkA =
-    [
-        "...##......##...........",
-        "..##.......##...........",
-        "..##........##..........",
-        ".o##o......o##o.........",
-        ".###........###.........",
-    ];
-
-    private static readonly string[] LegsWalkB =
-    [
-        ".....##..##.............",
-        ".....##..##.............",
-        ".....##..##.............",
-        "....o##..##o............",
-        "....###..###............",
-    ];
-
-    private static readonly string[] LegsJump =
-    [
-        "....###..###............",
-        ".....#....#.............",
-        "........................",
-        "........................",
-        "........................",
-    ];
-
-    private static readonly string[] LegsScratchA =
-    [
-        "...##o.....##...........",
-        "..o###.....##...........",
-        "..####.....##...........",
-        "..........o##o..........",
-        "..........####..........",
-    ];
-
-    private static readonly string[] LegsScratchB =
-    [
-        "....##.....##...........",
-        "...o##o....##...........",
-        "...###.....##...........",
-        "..........o##o..........",
-        "..........####..........",
-    ];
-
-    private static readonly string[] LegsTiptoe =
-    [
-        "....##.....##...........",
-        "....##.....##...........",
-        "....##.....##...........",
-        "....##.....##...........",
-        "....o#....o#............",
-    ];
-
-    private static readonly string[] LegsSit =
-    [
-        "...o##o...o##o..........",
-        "...####...####..........",
-    ];
-
-    private static readonly string[] LegsDuckA =
-    [
-        "......##.....##.........",
-        ".....o##o...o##o........",
-        ".....####...####........",
-    ];
-
-    private static readonly string[] LegsDuckB =
-    [
-        "......##.....##.........",
-        "......##....o##o........",
-        ".....o##o...####........",
-    ];
+    // ---- Effect art ----
 
     private static readonly string[] HeartGrid =
     [
-        ".rr.rr.",
-        "rsrrrrr",
-        "rrrrrrr",
-        ".rrrrr.",
-        "..rrr..",
-        "...r...",
+        "...rrr....rrr..",
+        "..rsrrr..rrrrr.",
+        ".rrsrrrr.rrrrrr",
+        ".rrrrrrrrrrrrrr",
+        ".rrrrrrrrrrrrrr",
+        "..rrrrrrrrrrrr.",
+        "...rrrrrrrrrr..",
+        "....rrrrrrrr...",
+        ".....rrrrrr....",
+        "......rrrr.....",
+        ".......rr......",
     ];
 
     private static readonly string[] Zzz1Grid =
@@ -298,40 +187,128 @@ public static class DinoSpriteSheet
         ".k.",
     ];
 
-    /// <summary>A 24×24 frame: body grid at a vertical offset, legs grid, and an eye variant at a position.</summary>
-    private readonly record struct Frame(string Name, string[] Body, int BodyY, string[] Legs, int LegsY, Eye Eye, int EyeX, int EyeY);
-
-    private const int StdEyeX = 14;
-    private const int StdEyeY = 4;
-
-    private static readonly Frame[] Frames =
+    private static readonly string[] Ball1Grid =
     [
-        new(Idle, Body, 0, LegsStand, 19, Eye.Open, StdEyeX, StdEyeY),
-        new(Blink, Body, 0, LegsStand, 19, Eye.Closed, StdEyeX, StdEyeY),
-        new(LookLeft, Body, 0, LegsStand, 19, Eye.Left, StdEyeX, StdEyeY),
-        new(LookRight, Body, 0, LegsStand, 19, Eye.Right, StdEyeX, StdEyeY),
-        new(Walk1, Body, 0, LegsWalkA, 19, Eye.Open, StdEyeX, StdEyeY),
-        new(Walk2, Body, 0, LegsWalkB, 19, Eye.Open, StdEyeX, StdEyeY),
-        new(Jump, Body, 0, LegsJump, 19, Eye.Open, StdEyeX, StdEyeY),
-        new(TailUp, BodyTailUp, 0, LegsStand, 19, Eye.Open, StdEyeX, StdEyeY),
-        new(Yawn, BodyYawn, 0, LegsStand, 19, Eye.Closed, StdEyeX, StdEyeY),
-        new(Sleep, Body, 3, LegsSit, 22, Eye.Closed, StdEyeX, StdEyeY + 3),
-        new(Scratch1, Body, 0, LegsScratchA, 19, Eye.Open, StdEyeX, StdEyeY),
-        new(Scratch2, Body, 0, LegsScratchB, 19, Eye.Open, StdEyeX, StdEyeY),
-        new(Stretch, Body, -1, LegsTiptoe, 18, Eye.Closed, StdEyeX, StdEyeY - 1),
-        new(Duck1, BodyDuck, 12, LegsDuckA, 21, Eye.Open, 16, 14),
-        new(Duck2, BodyDuck, 12, LegsDuckB, 21, Eye.Open, 16, 14),
-        new(Dead, Body, 0, LegsStand, 19, Eye.Dead, StdEyeX, StdEyeY),
-        new(Happy, BodyTailUp, 0, LegsStand, 19, Eye.Happy, StdEyeX, StdEyeY),
+        "....bbbb....",
+        "..bbbbbbbb..",
+        ".bbwwbbbbbb.",
+        ".bwwbbbbbbb.",
+        "bbwbbbbbbbbb",
+        "bbbbbbbbbbbb",
+        "bbbbbbbbbbbb",
+        "bbbbbbbbbbbb",
+        ".bbbbbbbbbb.",
+        ".bbbbbbbbbb.",
+        "..bbbbbbbb..",
+        "....bbbb....",
     ];
 
-    private static readonly (string Name, string[] Rows, bool Light)[] Effects =
+    private static readonly string[] Ball2Grid =
     [
-        (FxHeart, HeartGrid, false),
-        (FxZzz1, Zzz1Grid, false),
-        (FxZzz2, Zzz2Grid, false),
-        (FxQuestion, QuestionGrid, false),
-        (FxExclaim, ExclaimGrid, false),
+        "....bbbb....",
+        "..bbbbbbbb..",
+        ".bbbbbbwwbb.",
+        ".bbbbbbbwwb.",
+        "bbbbbbbbbwbb",
+        "bbbbbbbbbbbb",
+        "bbbbbbbbbbbb",
+        "bbbbbbbbbbbb",
+        ".bbbbbbbbbb.",
+        ".bbbbbbbbbb.",
+        "..bbbbbbbb..",
+        "....bbbb....",
+    ];
+
+    private static readonly string[] Sprout1Grid =
+    [
+        "....gg......",
+        "...gggg.....",
+        "...gggg..gg.",
+        "....dd..gggg",
+        "....dd.gggg.",
+        ".gg.dddd....",
+        "gggg.dd.....",
+        ".gggddd.....",
+        "....dd......",
+        "....dd......",
+        "...kkkk.....",
+        "..kkkkkk....",
+    ];
+
+    private static readonly string[] Sprout2Grid =
+    [
+        "............",
+        "............",
+        "............",
+        "............",
+        "....dd......",
+        ".gg.dddd....",
+        "gggg.dd.....",
+        ".gggddd.....",
+        "....dd......",
+        "....dd......",
+        "...kkkk.....",
+        "..kkkkkk....",
+    ];
+
+    private static readonly string[] Sprout3Grid =
+    [
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "....dd......",
+        "....dd......",
+        "...kkkk.....",
+        "..kkkkkk....",
+    ];
+
+    private static readonly string[] Confetti1Grid =
+    [
+        ".y....c.....m...o.....y.",
+        "...m.....y......c.......",
+        "c....o.......m....y...m.",
+        "........c..y....o.......",
+        ".o...y.......c......c...",
+        "....m.....o.......y.....",
+        "..c.....y....m..o....m..",
+        ".....o.....c.......y....",
+        "y.......m.....o...c.....",
+        "...c.........y.....m..o.",
+    ];
+
+    private static readonly string[] Confetti2Grid =
+    [
+        "...c....y....o.....m....",
+        ".m....o.....c....y......",
+        "......y..m.....c.....o..",
+        "..o.........y....m......",
+        "y....c....o.......c...y.",
+        "...m....y....m..........",
+        ".c........o....y...c....",
+        "....y..c.....m.....o....",
+        "..o.....m......c......y.",
+        "m....y.....o.....y...c..",
+    ];
+
+    private static readonly (string Name, string[] Rows, int Scale, bool Halo)[] Effects =
+    [
+        (FxHeart, HeartGrid, 1, false),
+        (FxZzz1, Zzz1Grid, 2, true),
+        (FxZzz2, Zzz2Grid, 2, true),
+        (FxQuestion, QuestionGrid, 2, true),
+        (FxExclaim, ExclaimGrid, 2, true),
+        (FxBall1, Ball1Grid, 1, false),
+        (FxBall2, Ball2Grid, 1, false),
+        (FxSprout1, Sprout1Grid, 1, false),
+        (FxSprout2, Sprout2Grid, 1, false),
+        (FxSprout3, Sprout3Grid, 1, false),
+        (FxConfetti1, Confetti1Grid, 1, false),
+        (FxConfetti2, Confetti2Grid, 1, false),
     ];
 
     public static IReadOnlyDictionary<string, AtlasRegion> Regions { get; }
@@ -347,9 +324,9 @@ public static class DinoSpriteSheet
             cells[i++] = (f.Name, FrameWidth, FrameHeight);
         }
 
-        foreach ((string name, string[] rows, _) in Effects)
+        foreach ((string name, string[] rows, int scale, _) in Effects)
         {
-            cells[i++] = (name, rows[0].Length + 2, rows.Length + 2); // room for the outline
+            cells[i++] = (name, (rows[0].Length * scale) + 2, (rows.Length * scale) + 2); // room for the outline
         }
 
         Regions = PixelArt.Pack(cells, AtlasWidth, 0, out int height);
@@ -366,48 +343,61 @@ public static class DinoSpriteSheet
         foreach (Frame f in Frames)
         {
             PixelRect cell = Regions[f.Name].Source;
-            PixelArt.Paint(pixels, AtlasWidth, cell, 0, f.BodyY, f.Body, ink);
-            PixelArt.Paint(pixels, AtlasWidth, cell, 0, f.LegsY, f.Legs, ink);
-            PaintEye(pixels, AtlasWidth, cell, f.Eye, f.EyeX, f.EyeY);
+            PixelArt.Paint(pixels, AtlasWidth, cell, 0, 0, f.Grid, ink);
+            (int ex, int ey) = DinoArt.Eye(f.Pose);
+            PaintEye(pixels, AtlasWidth, cell, f.Eye, ex, ey);
         }
 
-        var heartInk = new PixelArt.Ink(new[] { ('r', HeartRed), ('s', HeartShine) });
-        var darkInk = new PixelArt.Ink(new[] { ('k', DarkInk) });
-        foreach ((string name, string[] rows, bool light) in Effects)
+        foreach ((string name, string[] rows, int scale, bool halo) in Effects)
         {
             PixelRect cell = Regions[name].Source;
-            PixelArt.Paint(pixels, AtlasWidth, cell, 1, 1, rows, name == FxHeart ? heartInk : darkInk);
-            PixelArt.Outline(pixels, AtlasWidth, cell, name == FxHeart ? DarkInk : LightInk);
+            PixelArt.Paint(pixels, AtlasWidth, cell, 1, 1, scale == 1 ? rows : PixelArt.Upscale(rows, scale), EffectInk);
+            if (name is not (FxConfetti1 or FxConfetti2))
+            {
+                PixelArt.Outline(pixels, AtlasWidth, cell, halo ? LightInk : DarkInk);
+            }
         }
 
         return new SpriteSheet(AtlasWidth, AtlasHeight, pixels, Regions);
     }
 
-    /// <summary>Renders just the idle pose, scaled to <paramref name="size"/>², for a tray/app icon.</summary>
+    /// <summary>Renders the idle pose, scaled to <paramref name="size"/>², for a tray/app icon.</summary>
     public static Bgra32[] CreateIconPixels(DinoTheme theme, int size, Rgb accent = default)
     {
         Palette palette = PaletteFor(theme, accent);
         var frame = new Bgra32[FrameWidth * FrameHeight];
         var cell = new PixelRect(0, 0, FrameWidth, FrameHeight);
         var ink = new PixelArt.Ink(new[] { ('o', palette.Outline), ('#', palette.Body), ('=', palette.Belly) });
-        PixelArt.Paint(frame, FrameWidth, cell, 0, 0, Body, ink);
-        PixelArt.Paint(frame, FrameWidth, cell, 0, 19, LegsStand, ink);
-        PaintEye(frame, FrameWidth, cell, Eye.Open, StdEyeX, StdEyeY);
+        PixelArt.Paint(frame, FrameWidth, cell, 0, 0, DinoArt.Idle, ink);
+        (int ex, int ey) = DinoArt.Eye("idle");
+        PaintEye(frame, FrameWidth, cell, Eye.Open, ex, ey);
 
-        // The art occupies columns 1..22 and rows 1..23; crop to that 22×23 box so the icon fills its cell.
-        const int cropX = 1, cropY = 1, cropW = 22, cropH = 23;
+        // Crop to the art's bounding box so the icon fills its cell, then resample.
+        var sheet = new SpriteSheet(FrameWidth, FrameHeight, frame, Regions);
+        PixelRect crop = sheet.OpaqueBounds(new AtlasRegion(cell));
+        int side = Math.Max(crop.Width, crop.Height);
+        int originX = crop.X - ((side - crop.Width) / 2);
+        int originY = crop.Y - ((side - crop.Height) / 2);
+
         var icon = new Bgra32[size * size];
         for (int y = 0; y < size; y++)
         {
-            int sy = cropY + (y * cropH / size);
+            int sy = originY + (y * side / size);
             for (int x = 0; x < size; x++)
             {
-                int sx = cropX + (x * cropW / size);
-                icon[(y * size) + x] = frame[(sy * FrameWidth) + sx];
+                int sx = originX + (x * side / size);
+                icon[(y * size) + x] = sx >= 0 && sy >= 0 && sx < FrameWidth && sy < FrameHeight ? frame[(sy * FrameWidth) + sx] : default;
             }
         }
 
         return icon;
+    }
+
+    /// <summary>The body colour of a theme (for menu swatches).</summary>
+    public static Rgb ThemeColor(DinoTheme theme, Rgb accent)
+    {
+        Bgra32 body = PaletteFor(theme, accent).Body;
+        return new Rgb(body.R, body.G, body.B);
     }
 
     private static Palette PaletteFor(DinoTheme theme, Rgb accent)
@@ -418,27 +408,26 @@ public static class DinoSpriteSheet
         }
 
         Rgb a = accent == default ? AccentFallback : accent;
-        return new Palette(a.Scale(0.5f).ToBgra32(), a.ToBgra32(), a.Lighten(0.35f).ToBgra32());
+        return new Palette(a.Scale(0.45f).ToBgra32(), a.ToBgra32(), a.Lighten(0.4f).ToBgra32());
     }
 
     private static void PaintEye(Bgra32[] buffer, int stride, PixelRect cell, Eye eye, int ex, int ey)
     {
-        const int w = 4, h = 3;
         void Set(int x, int y, Bgra32 c) => buffer[((cell.Y + ey + y) * stride) + cell.X + ex + x] = c;
 
         switch (eye)
         {
             case Eye.Closed:
-                for (int x = 0; x < w; x++) Set(x, 1, Pupil);
+                for (int x = 0; x < 5; x++) { Set(x, 2, Pupil); Set(x, 3, Pupil); }
                 return;
             case Eye.Happy:
-                Set(1, 0, Pupil); Set(2, 0, Pupil); Set(0, 1, Pupil); Set(3, 1, Pupil);
+                Set(2, 1, Pupil); Set(1, 2, Pupil); Set(3, 2, Pupil); Set(0, 3, Pupil); Set(4, 3, Pupil);
                 return;
         }
 
-        for (int y = 0; y < h; y++)
+        for (int y = 0; y < 5; y++)
         {
-            for (int x = 0; x < w; x++)
+            for (int x = 0; x < 5; x++)
             {
                 Set(x, y, EyeWhite);
             }
@@ -446,12 +435,13 @@ public static class DinoSpriteSheet
 
         if (eye == Eye.Dead)
         {
-            Set(0, 0, Pupil); Set(3, 0, Pupil); Set(1, 1, Pupil); Set(2, 1, Pupil); Set(0, 2, Pupil); Set(3, 2, Pupil);
+            Set(0, 0, Pupil); Set(4, 0, Pupil); Set(1, 1, Pupil); Set(3, 1, Pupil); Set(2, 2, Pupil);
+            Set(1, 3, Pupil); Set(3, 3, Pupil); Set(0, 4, Pupil); Set(4, 4, Pupil);
             return;
         }
 
-        int pupilX = eye switch { Eye.Left => 0, Eye.Right => 2, _ => 1 };
-        Set(pupilX, 1, Pupil);
-        Set(pupilX + 1, 1, Pupil);
+        int px = eye switch { Eye.Left => 0, Eye.Right => 3, _ => 2 };
+        Set(px, 1, Pupil); Set(px + 1, 1, Pupil);
+        Set(px, 2, Pupil); Set(px + 1, 2, Pupil);
     }
 }

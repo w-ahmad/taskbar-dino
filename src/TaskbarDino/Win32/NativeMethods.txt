@@ -154,3 +154,20 @@ PBT_APMRESUMESUSPEND
 SYSTEM_PARAMETERS_INFO_ACTION
 IDC_ARROW
 HWND_TOPMOST
+
+// --- Context-menu icons (Fluent glyphs + colour swatches as 32-bit menu bitmaps) ---
+CreateCompatibleDC
+DeleteDC
+CreateDIBSection
+SelectObject
+CreateFont
+SetTextColor
+SetBkMode
+DrawText
+GetSysColor
+SetMenuItemInfo
+MENUITEMINFOW
+GetDpiForWindow
+
+EndMenu
+SetCursorPos

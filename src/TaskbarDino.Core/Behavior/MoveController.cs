@@ -11,12 +11,15 @@ namespace TaskbarDino.Core.Behavior;
 /// </summary>
 public sealed class MoveController
 {
-    private const float WalkSpeed = 230f;      // px/s at 100%
-    private const float RunSpeed = 640f;       // fast, so relocating between app icons feels snappy
-    private const float RunDistance = 90f;     // farther than this → run
+    private const float WalkSpeed = 200f;      // px/s at 100%
+    private const float RunSpeed = 620f;       // fast, so relocating between far-apart icons feels snappy
+    private const float RunDistance = 260f;    // farther than this → run; nearer → walk
     private const float ArriveEpsilon = 1.0f;
-    private const float Gravity = 1600f;       // px/s²
-    private const float JumpVelocity = 380f;   // initial upward px/s (≈ one body-height hop)
+    private const float Gravity = 1700f;       // px/s²
+    private const float JumpVelocity = 440f;   // initial upward px/s (≈ one body-height hop)
+
+    /// <summary>Trips at least this far (× UI scale) start with a leap; shorter ones just walk or run.</summary>
+    public const float HopDistance = 520f;
 
     private readonly float _scale;
 
@@ -25,6 +28,7 @@ public sealed class MoveController
     private float _jumpHeight;
     private float _jumpVelocity;
     private bool _jumping;
+    private bool _run; // gait chosen when the trip starts, so the dino doesn't slow to a walk near the target
 
     public MoveController(float uiScale) => _scale = MathF.Max(1f, uiScale);
 
@@ -54,12 +58,16 @@ public sealed class MoveController
     public void MoveTo(float targetX, bool jump = false)
     {
         _targetX = targetX;
+        _run = MathF.Abs(targetX - _x) >= RunDistance * _scale;
         if (jump && !_jumping)
         {
             _jumping = true;
             _jumpVelocity = JumpVelocity * _scale;
         }
     }
+
+    /// <summary>Relocates naturally: walk when near, run when farther, leap off the mark when far.</summary>
+    public void Travel(float targetX) => MoveTo(targetX, jump: MathF.Abs(targetX - _x) >= HopDistance * _scale);
 
     /// <summary>Starts falling from <paramref name="height"/> above the ground (used after a drop).</summary>
     public void FallFrom(float height)
@@ -77,8 +85,7 @@ public sealed class MoveController
         if (distance > ArriveEpsilon)
         {
             Facing = remaining > 0 ? Facing.Right : Facing.Left;
-            bool run = distance >= RunDistance * _scale;
-            float step = (run ? RunSpeed : WalkSpeed) * _scale * deltaSeconds;
+            float step = (_run ? RunSpeed : WalkSpeed) * _scale * deltaSeconds;
             _x = step >= distance ? _targetX : _x + (MathF.Sign(remaining) * step);
         }
         else if (distance > 0f)
@@ -113,6 +120,6 @@ public sealed class MoveController
             return DinoState.Idle;
         }
 
-        return distance >= RunDistance * _scale ? DinoState.Running : DinoState.Walking;
+        return _run ? DinoState.Running : DinoState.Walking;
     }
 }

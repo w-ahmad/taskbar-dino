@@ -7,7 +7,7 @@ public sealed record AppSettings
 {
     public DinoTheme Theme { get; init; } = DinoTheme.Accent;
 
-    public DinoSize Size { get; init; } = DinoSize.Small;
+    public DinoSize Size { get; init; } = DinoSize.Medium;
 
     public ActivityLevel Activity { get; init; } = ActivityLevel.Normal;
 

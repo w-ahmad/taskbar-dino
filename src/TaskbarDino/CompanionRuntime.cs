@@ -30,9 +30,9 @@ internal sealed class CompanionRuntime : IDisposable
     private const float FullscreenPollSeconds = 2f;     // while hidden behind a full-screen app
     private const float ReturnHomeDelaySeconds = 1.4f;  // dropped dino looks around, then heads home
     private const float TaskbarSettleSeconds = 1.5f;    // Explorer needs a moment after restarting
-    private const int GazeDeadZone = 14;                // sprite px × scale: cursor straight above = look ahead
+    private const int GazeDeadZone = 28;                // sprite px × scale: cursor straight above = look ahead
     private const int TrayIconSize = 32;
-    private const int MarginSprite = 16;                // sprite px of air around the dino for effects
+    private const int MarginSprite = 32;                // sprite px of air around the dino for effects and the ball
 
     // Diagnostics switch for leak bisection: TASKBARDINO_NOPOLL=1 disables the periodic idle poll.
     private static readonly bool NoIdlePoll = Environment.GetEnvironmentVariable("TASKBARDINO_NOPOLL") == "1";
@@ -75,6 +75,7 @@ internal sealed class CompanionRuntime : IDisposable
     private float _returnHomeIn = -1f;      // > 0: countdown after a drop
     private float _idlePoll = IdlePollSeconds;
     private float _rehomeIn = -1f;          // > 0: countdown to a forced re-home (Explorer restart, resume)
+    private float _menuPreviewIn = -1f;     // > 0: countdown to the diagnostic menu preview
 
     // Pending requests from hooks/tray, applied on the loop thread.
     private bool _menuRequested, _enterGame, _exitGame, _layoutDirty;
@@ -96,6 +97,9 @@ internal sealed class CompanionRuntime : IDisposable
 
     /// <summary>Benchmark aids: start straight in Game Mode, optionally with the autopilot playing.</summary>
     public bool StartInGame { get; set; }
+
+    /// <summary>Diagnostics: open the context menu 2 s after start (it closes itself after 4 s).</summary>
+    public bool MenuPreview { get; set; }
 
     public bool Autopilot { get; set; }
 
@@ -137,7 +141,7 @@ internal sealed class CompanionRuntime : IDisposable
         _overlay.ShowRequested += () => { if (_mode == Mode.Hidden) ShowNow(); _loop.Wake(); };
         SubscribeInput();
 
-        _tray.StateProvider = () => new TrayMenuState(_settings.Current, _mode == Mode.Hidden, _mode == Mode.Game);
+        _tray.StateProvider = () => new TrayMenuState(_settings.Current, _mode == Mode.Hidden, _mode == Mode.Game, _accent);
         _tray.Command += OnTrayCommand;
         _tray.Install(DinoSpriteSheet.CreateIconPixels(_settings.Current.Theme, TrayIconSize, _accent), TrayIconSize, "Taskbar Dino");
         if (_settings.Current.StartWithWindows != StartupRegistration.IsEnabled)
@@ -163,6 +167,13 @@ internal sealed class CompanionRuntime : IDisposable
         {
             _game.Autopilot = Autopilot;
             _enterGame = true;
+        }
+
+        if (MenuPreview)
+        {
+            _tray.AutoCloseMs = 4000;
+            _rehomeIn = -1f;
+            _menuPreviewIn = 2f;
         }
 
         _loop.Run(Tick);
@@ -271,6 +282,13 @@ internal sealed class CompanionRuntime : IDisposable
             RequestHome(_foreground.Current);
         }
 
+        if (Countdown(ref _menuPreviewIn, dt))
+        {
+            // Diagnostics only: park the cursor on the dino so the menu opens where a right-click would put it.
+            _ = Windows.Win32.PInvoke.SetCursorPos((int)_move.FeetX, _groundY - (_dinoHeight / 2));
+            _menuRequested = true;
+        }
+
         if (Countdown(ref _returnHomeIn, dt))
         {
             RequestHome(_foreground.Current);
@@ -318,6 +336,10 @@ internal sealed class CompanionRuntime : IDisposable
             while (_brain.TryDequeueReaction(out DinoReaction reaction))
             {
                 _animation.Trigger(reaction);
+                if (reaction is DinoReaction.Play or DinoReaction.Celebrate)
+                {
+                    _move.MoveTo(_move.FeetX, jump: true); // these moods come with a hop
+                }
             }
 
             _animation.Update(animDt);
@@ -352,6 +374,7 @@ internal sealed class CompanionRuntime : IDisposable
         if (_follow.Pending) outcome = Soonest(outcome, _follow.Remaining);
         if (_returnHomeIn > 0f) outcome = Soonest(outcome, _returnHomeIn);
         if (_rehomeIn > 0f) outcome = Soonest(outcome, _rehomeIn);
+        if (_menuPreviewIn > 0f) outcome = Soonest(outcome, _menuPreviewIn);
 
         return Present(time, window, frame, flip, outcome);
     }
@@ -598,7 +621,7 @@ internal sealed class CompanionRuntime : IDisposable
         }
 
         _groundY = Monitors.Taskbar(home.Monitor).GroundY(home.Monitor);
-        _move.MoveTo(home.Anchor.X, jump: true);
+        _move.Travel(home.Anchor.X);
     }
 
     private void ContinueLeg(HomePosition home)
@@ -608,7 +631,7 @@ internal sealed class CompanionRuntime : IDisposable
         SetMonitor(home.Monitor);
         _move = new MoveController(home.Monitor.DpiScale);
         _move.Teleport(fromLeft ? home.Monitor.Bounds.Left - (_dinoWidth / 2f) : home.Monitor.Bounds.Right + (_dinoWidth / 2f));
-        _move.MoveTo(home.Anchor.X, jump: true);
+        _move.Travel(home.Anchor.X);
     }
 
     /// <summary>Periodic, cheap checks while settled: did the icon move (rearranged taskbar)? Did a full-screen app appear?</summary>
@@ -636,6 +659,11 @@ internal sealed class CompanionRuntime : IDisposable
         _monitor = monitor;
         TaskbarInfo taskbar = Monitors.Taskbar(monitor);
         _spriteScale = _settings.Current.Size.ScaleFactor() * monitor.DpiScale;
+        if (_renderer is not null)
+        {
+            _renderer.Smooth = _spriteScale < 1f; // downscaled pixel art keeps its lines with linear filtering
+        }
+
         _dinoWidth = (int)MathF.Round(DinoSpriteSheet.FrameWidth * _spriteScale);
         _dinoHeight = (int)MathF.Round(DinoSpriteSheet.FrameHeight * _spriteScale);
         _margin = (int)MathF.Round(MarginSprite * _spriteScale);
@@ -709,7 +737,7 @@ internal sealed class CompanionRuntime : IDisposable
 
     private void CreateRenderer()
     {
-        _renderer = new Renderer(_overlay.Handle, _windowWidth, _windowHeight, _settings.Current.SoftwareRendering);
+        _renderer = new Renderer(_overlay.Handle, _windowWidth, _windowHeight, _settings.Current.SoftwareRendering) { Smooth = _spriteScale < 1f };
         _dinoTexture = _renderer.CreateTexture(_dinoSheet);
         if (_artSheet is not null)
         {
@@ -814,7 +842,8 @@ internal sealed class CompanionRuntime : IDisposable
         }
 
         _keyboard.Disable();
-        if (_game.HighScore > _settings.Current.HighScore)
+        bool newBest = _game.HighScore > _settings.Current.HighScore;
+        if (newBest)
         {
             _settings.Update(s => s with { HighScore = _game.HighScore });
         }
@@ -823,7 +852,7 @@ internal sealed class CompanionRuntime : IDisposable
         _windowWidth = _windowHeight = 0; // force SetMonitor to resize the surface back down
         SetMonitor(_monitor);
         _animation.SetState(DinoState.Idle);
-        _animation.Trigger(DinoReaction.Happy);
+        _animation.Trigger(newBest ? DinoReaction.Celebrate : DinoReaction.Happy);
         _drawnValid = false;
         _brain.Poke();
         Log.Info($"Game Mode left (best {_game.HighScore}).");

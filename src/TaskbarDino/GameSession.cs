@@ -243,29 +243,30 @@ internal sealed class GameSession
 
         // Just above the dino's head, following it up when it jumps.
         float headY = GameConfig.GroundY - _game.Trex.JumpOffset - GameConfig.DinoHeight;
-        float top = MathF.Max(0f, headY - 3f - bubble.Height);
+        float top = MathF.Max(0f, headY - 6f - bubble.Height);
         DrawArt(GameSpriteSheet.Bubble, left, top, mirrorPosition: false);
 
-        int glyph = Math.Max(1, (int)MathF.Round(_scale * 0.9f)); // integer glyph scale keeps the 1px font gaps
+        int glyph = Math.Max(1, (int)MathF.Round(_scale * 1.8f)); // integer glyph scale keeps the 1px font gaps
         float lineH = GameSpriteSheet.GlyphHeight * glyph;
         float cx = (left + (bubble.Width / 2f)) * _scale;
         float cy = (top + (bubble.Height / 2f)) * _scale;
-        DrawText($"HI {_game.HighScore:D4}", cx, cy - lineH - (glyph * 0.5f), glyph);
+        DrawText($"HI {_game.HighScore:D4}", cx, cy - lineH - (glyph * 1f), glyph);
         DrawText(_game.Score.ToString("D4"), cx, cy + (glyph * 1f), glyph);
     }
 
     private void DrawGameOver()
     {
-        int glyph = Math.Max(1, (int)MathF.Round(_scale * 1.3f));
+        int glyph = Math.Max(1, (int)MathF.Round(_scale * 2.6f));
         float cx = DinoScreenCenter() * _scale;
-        float y = 4f * _scale;
+        float y = 8f * _scale;
         float textW = DrawText("GAME OVER", cx, y, glyph);
         AtlasRegion restart = _artSheet[GameSpriteSheet.Restart];
         if (_game.RestartReady)
         {
-            float rx = cx + (textW / 2f) + (6f * _scale);
-            float ry = y - (((restart.Height * _scale) - (GameSpriteSheet.GlyphHeight * glyph)) / 2f);
-            _renderer.Draw(_art, restart, new RectF(rx, ry, restart.Width * _scale, restart.Height * _scale));
+            float size = restart.Width * _scale * 2f;
+            float rx = cx + (textW / 2f) + (12f * _scale);
+            float ry = y - ((size - (GameSpriteSheet.GlyphHeight * glyph)) / 2f);
+            _renderer.Draw(_art, restart, new RectF(rx, ry, size, size));
         }
     }
 

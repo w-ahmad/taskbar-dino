@@ -121,3 +121,21 @@ timer resolution.
 - Game Mode: `TaskbarDino.exe --game --autopilot --log` (benchmark-only flags: starts in Game Mode
   and a bot plays) with the per-second frame-rate lines from the log and the same process counters.
 - Deployment sizes: `dotnet publish` with the three configurations, `.pdb`/`.xml` excluded.
+
+## After the art rework (48 px dino, Fluent menu icons, new moods)
+
+Same scripts, same machine, published build of the second pass:
+
+| Metric | Value |
+|---|---|
+| Startup → dino visible | 0.46 s |
+| Idle CPU (20 s) | 0.014 % (3.1 ms/s) |
+| Working set / private (GPU) | 65.3 / 41.0 MB |
+| Threads | 11 |
+| Game, GPU: fps avg / max, CPU of one core | 57.8 / 58.9 fps, 0.77 % |
+| Game, WARP: fps avg / max, CPU of one core | 58.4 / 59.0 fps, 0.41 % |
+| Executable | 2.57 MB |
+
+The larger sprite sheet (384×240 instead of 192×24 texels) and 4× larger game sprites raise the
+per-frame draw cost slightly during play; idle cost is unchanged because nothing is drawn while
+the dino stands still.

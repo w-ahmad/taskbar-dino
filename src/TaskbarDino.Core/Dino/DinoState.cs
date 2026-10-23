@@ -30,6 +30,9 @@ public enum DinoReaction
     Curious,
     Happy,
     Surprised,
+    Eat,
+    Play,
+    Celebrate,
 }
 
 /// <summary>Which way the sprite faces. Rendering mirrors for <see cref="Left"/>.</summary>

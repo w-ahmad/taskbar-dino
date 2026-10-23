@@ -55,6 +55,7 @@ internal static unsafe class Program
             {
                 StartInGame = Array.IndexOf(args, "--game") >= 0,
                 Autopilot = Array.IndexOf(args, "--autopilot") >= 0,
+                MenuPreview = Array.IndexOf(args, "--menu-preview") >= 0,
             };
             runtime.Run();
         }

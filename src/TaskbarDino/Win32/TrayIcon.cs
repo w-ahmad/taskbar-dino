@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+using TaskbarDino.Core.Content;
 using TaskbarDino.Core.Dino;
 using TaskbarDino.Core.Graphics;
 using TaskbarDino.Core.Settings;
@@ -34,7 +35,7 @@ internal enum TrayCommand
 }
 
 /// <summary>What the menu shows as checked / available; supplied by the app when the menu opens.</summary>
-internal readonly record struct TrayMenuState(AppSettings Settings, bool Hidden, bool InGame);
+internal readonly record struct TrayMenuState(AppSettings Settings, bool Hidden, bool InGame, Rgb Accent);
 
 /// <summary>
 /// System-tray presence: a notification-area icon (built from the dino's own pixels) plus the
@@ -87,6 +88,10 @@ internal sealed unsafe class TrayIcon : IDisposable
     private HICON _icon;
     private bool _installed;
     private bool _menuOpen;
+    private nuint _autoCloseTimer;
+
+    /// <summary>Diagnostics: close the menu by itself after this many ms (0 = never). Used for screenshots.</summary>
+    public uint AutoCloseMs { get; set; }
 
     public TrayIcon()
     {
@@ -250,6 +255,7 @@ internal sealed unsafe class TrayIcon : IDisposable
     private void ShowMenuCore(TrayMenuState state)
     {
         AppSettings s = state.Settings;
+        using var icons = new MenuIcons(PInvoke.GetDpiForWindow(_hwnd));
         HMENU menu = PInvoke.CreatePopupMenu();
         HMENU colors = PInvoke.CreatePopupMenu();
         HMENU sizes = PInvoke.CreatePopupMenu();
@@ -257,7 +263,7 @@ internal sealed unsafe class TrayIcon : IDisposable
 
         foreach ((DinoTheme theme, string label) in Themes)
         {
-            Append(colors, IdThemeBase + (uint)theme, label, theme == s.Theme);
+            Append(colors, IdThemeBase + (uint)theme, label, theme == s.Theme, icon: icons.Swatch(DinoSpriteSheet.ThemeColor(theme, state.Accent)));
         }
 
         foreach ((DinoSize size, string label) in Sizes)
@@ -270,28 +276,28 @@ internal sealed unsafe class TrayIcon : IDisposable
             Append(personality, IdActivityBase + (uint)level, label, level == s.Activity);
         }
 
-        Append(menu, IdStartGame, state.InGame ? "Stop Game" : "Start Game");
+        Append(menu, IdStartGame, state.InGame ? "Stop Game" : "Start Game", icon: icons.Glyph(state.InGame ? MenuIcons.Stop : MenuIcons.Play));
         Separator(menu);
         if (state.Hidden)
         {
-            Append(menu, IdShowNow, "Show Dino Now");
+            Append(menu, IdShowNow, "Show Dino Now", icon: icons.Glyph(MenuIcons.Show));
         }
 
-        Append(menu, IdHide1, "Hide for 1 Hour");
-        Append(menu, IdHide4, "Hide for 4 Hours");
+        Append(menu, IdHide1, "Hide for 1 Hour", icon: icons.Glyph(MenuIcons.Clock));
+        Append(menu, IdHide4, "Hide for 4 Hours", icon: icons.Glyph(MenuIcons.Clock));
         Separator(menu);
-        Submenu(menu, colors, "Dino Color");
-        Submenu(menu, sizes, "Dino Size");
-        Submenu(menu, personality, "Personality");
-        Append(menu, IdFullscreen, "Pause in Full-Screen Apps", s.PauseInFullscreen);
-        Append(menu, IdSoftware, "Low-Memory Rendering (CPU)", s.SoftwareRendering);
-        Append(menu, IdStartup, "Start with Windows", s.StartWithWindows);
+        Submenu(menu, colors, "Dino Color", icons.Glyph(MenuIcons.Color));
+        Submenu(menu, sizes, "Dino Size", icons.Glyph(MenuIcons.Size));
+        Submenu(menu, personality, "Personality", icons.Glyph(MenuIcons.Personality));
+        Append(menu, IdFullscreen, "Pause in Full-Screen Apps", s.PauseInFullscreen, icon: icons.Glyph(MenuIcons.FullScreen));
+        Append(menu, IdSoftware, "Low-Memory Rendering (CPU)", s.SoftwareRendering, icon: icons.Glyph(MenuIcons.Memory));
+        Append(menu, IdStartup, "Start with Windows", s.StartWithWindows, icon: icons.Glyph(MenuIcons.Power));
         Separator(menu);
-        Append(menu, IdResetHigh, s.HighScore > 0 ? $"Reset High Score ({s.HighScore})" : "Reset High Score", enabled: s.HighScore > 0);
-        Append(menu, IdOpenSettings, "Open Settings File");
-        Append(menu, IdResetSettings, "Reset Settings");
+        Append(menu, IdResetHigh, s.HighScore > 0 ? $"Reset High Score ({s.HighScore})" : "Reset High Score", enabled: s.HighScore > 0, icon: icons.Glyph(MenuIcons.Undo));
+        Append(menu, IdOpenSettings, "Open Settings File", icon: icons.Glyph(MenuIcons.OpenFile));
+        Append(menu, IdResetSettings, "Reset Settings", icon: icons.Glyph(MenuIcons.Reset));
         Separator(menu);
-        Append(menu, IdExit, "Exit");
+        Append(menu, IdExit, "Exit", icon: icons.Glyph(MenuIcons.Exit));
 
         System.Drawing.Point cursor;
         _ = PInvoke.GetCursorPos(&cursor);
@@ -305,7 +311,18 @@ internal sealed unsafe class TrayIcon : IDisposable
         uint ownThread = PInvoke.GetCurrentThreadId();
         bool attached = previousThread != 0 && previousThread != ownThread && PInvoke.AttachThreadInput(previousThread, ownThread, true);
         _ = PInvoke.SetForegroundWindow(_hwnd);
+        if (AutoCloseMs > 0)
+        {
+            _autoCloseTimer = PInvoke.SetTimer(HWND.Null, 0, AutoCloseMs, &OnAutoClose);
+        }
+
         BOOL result = PInvoke.TrackPopupMenuEx(menu, TpmRightButton | TpmReturnCmd | TpmBottomAlign, cursor.X, cursor.Y, _hwnd, null);
+        if (_autoCloseTimer != 0)
+        {
+            _ = PInvoke.KillTimer(HWND.Null, _autoCloseTimer);
+            _autoCloseTimer = 0;
+        }
+
         _ = PInvoke.PostMessage(_hwnd, PInvoke.WM_NULL, default, default); // per MSDN: lets the menu close cleanly
         if (!previous.IsNull && PInvoke.IsWindow(previous))
         {
@@ -324,6 +341,9 @@ internal sealed unsafe class TrayIcon : IDisposable
 
         Dispatch((uint)result.Value);
     }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvStdcall)])]
+    private static void OnAutoClose(HWND hwnd, uint message, nuint timerId, uint time) => PInvoke.EndMenu();
 
     private void Dispatch(uint id)
     {
@@ -357,23 +377,43 @@ internal sealed unsafe class TrayIcon : IDisposable
         }
     }
 
-    private static void Append(HMENU menu, uint id, string text, bool isChecked = false, bool enabled = true)
+    private static void Append(HMENU menu, uint id, string text, bool isChecked = false, bool enabled = true, HBITMAP icon = default)
     {
         MENU_ITEM_FLAGS flags = MENU_ITEM_FLAGS.MF_STRING | (isChecked ? MENU_ITEM_FLAGS.MF_CHECKED : 0) | (enabled ? 0 : MENU_ITEM_FLAGS.MF_GRAYED);
         fixed (char* p = text)
         {
             _ = PInvoke.AppendMenu(menu, flags, id, p);
         }
+
+        SetIcon(menu, id, false, icon);
     }
 
     private static void Separator(HMENU menu) => PInvoke.AppendMenu(menu, MENU_ITEM_FLAGS.MF_SEPARATOR, 0, (PCWSTR)null);
 
-    private static void Submenu(HMENU menu, HMENU submenu, string text)
+    private static void Submenu(HMENU menu, HMENU submenu, string text, HBITMAP icon = default)
     {
         fixed (char* p = text)
         {
             _ = PInvoke.AppendMenu(menu, MENU_ITEM_FLAGS.MF_POPUP, (nuint)(nint)submenu.Value, p);
         }
+
+        SetIcon(menu, (uint)(nint)submenu.Value, false, icon);
+    }
+
+    private static void SetIcon(HMENU menu, uint item, bool byPosition, HBITMAP icon)
+    {
+        if (icon.IsNull)
+        {
+            return;
+        }
+
+        var info = new MENUITEMINFOW
+        {
+            cbSize = (uint)sizeof(MENUITEMINFOW),
+            fMask = MENU_ITEM_MASK.MIIM_BITMAP,
+            hbmpItem = icon,
+        };
+        _ = PInvoke.SetMenuItemInfo(menu, item, byPosition, &info);
     }
 
     private void ReplaceIcon(ReadOnlySpan<Bgra32> pixels, int size)

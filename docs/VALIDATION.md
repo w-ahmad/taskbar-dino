@@ -47,6 +47,20 @@ Evidence files are in `artifacts/validation/` (screenshots `*.png`, recordings
 | 21 | Single instance: second launch exits and un-hides the first | Pass (host) | second `TaskbarDino.exe` returns immediately; mutex `Local\TaskbarDino.SingleInstance` |
 | 22 | Clean exit, no orphan process | Pass | `taskkill`/menu Exit leaves no `TaskbarDino.exe` in `tasklist` |
 
+## Second pass (48 px art, moods, menu icons, movement)
+
+Host captures after the art and behaviour rework, taken without injecting input (the app's own
+`--menu-preview` and `--game --autopilot` switches):
+
+| Scenario | Result | Evidence |
+|---|---|---|
+| 48 px T-rex on the active app's button, Medium size, accent colour | Pass | `docs/images/companion.png` |
+| Context menu with Fluent icons and colour swatches | Pass | `docs/images/menu.png` |
+| Game Mode at the new scale (dino, cacti, clouds, ground, HI bubble) | Pass | `docs/images/game.png` |
+| All 20 poses + 12 effect sprites render inside their cells, same footprint for standing poses | Pass | unit tests `SpriteSheetTests`, `docs/images/sprites.png` |
+| Walk / run / leap selection by distance | Pass | unit test `Travel_WalksShort_RunsMedium_LeapsFar` |
+| Sleep (lying down + zzz), eat, play, celebrate moods | Reviewed in the sprite preview; timing exercised by `DinoBrainTests` | not captured live (random timing) |
+
 ## Windows scenarios
 
 | Scenario | Result | Notes |

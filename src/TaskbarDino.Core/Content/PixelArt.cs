@@ -55,6 +55,31 @@ internal static class PixelArt
         }
     }
 
+    /// <summary>Pixel-doubles (or triples…) a grid.</summary>
+    public static string[] Upscale(string[] rows, int factor)
+    {
+        var result = new string[rows.Length * factor];
+        for (int y = 0; y < rows.Length; y++)
+        {
+            var chars = new char[rows[y].Length * factor];
+            for (int x = 0; x < rows[y].Length; x++)
+            {
+                for (int k = 0; k < factor; k++)
+                {
+                    chars[(x * factor) + k] = rows[y][x];
+                }
+            }
+
+            string row = new(chars);
+            for (int k = 0; k < factor; k++)
+            {
+                result[(y * factor) + k] = row;
+            }
+        }
+
+        return result;
+    }
+
     /// <summary>Colours every transparent pixel in the cell that touches an opaque one (4-neighbourhood).</summary>
     public static void Outline(Bgra32[] buffer, int stride, PixelRect cell, Bgra32 color)
     {
