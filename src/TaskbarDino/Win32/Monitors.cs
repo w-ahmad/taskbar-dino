@@ -11,7 +11,7 @@ using Windows.Win32.UI.HiDpi;
 namespace TaskbarDino.Win32;
 
 /// <summary>A display: bounds and work area in physical pixels, effective DPI (96 = 100%).</summary>
-internal sealed record MonitorInfo(nint Handle, PixelRect Bounds, PixelRect WorkArea, uint Dpi, bool IsPrimary)
+internal sealed record MonitorInfo(nint Handle, PixelRect Bounds, PixelRect WorkArea, uint Dpi)
 {
     public float DpiScale => Dpi / 96f;
 }
@@ -109,8 +109,6 @@ internal static unsafe class Monitors
 
         PixelRect bounds = PixelRect.FromLTRB(info.rcMonitor.left, info.rcMonitor.top, info.rcMonitor.right, info.rcMonitor.bottom);
         PixelRect work = PixelRect.FromLTRB(info.rcWork.left, info.rcWork.top, info.rcWork.right, info.rcWork.bottom);
-        bool isPrimary = (info.dwFlags & 1u) != 0; // MONITORINFOF_PRIMARY
-
         uint dpi = 96;
         uint dpiX, dpiY;
         if (PInvoke.GetDpiForMonitor(handle, MONITOR_DPI_TYPE.MDT_EFFECTIVE_DPI, &dpiX, &dpiY).Succeeded)
@@ -118,7 +116,7 @@ internal static unsafe class Monitors
             dpi = dpiX;
         }
 
-        return new MonitorInfo(handle, bounds, work, dpi, isPrimary);
+        return new MonitorInfo(handle, bounds, work, dpi);
     }
 }
 
@@ -128,9 +126,14 @@ internal static unsafe class TaskbarWindows
     [ThreadStatic]
     private static List<HWND>? _scratch;
 
+    [ThreadStatic]
+    private static List<HWND>? _reusable;
+
+    /// <summary>The taskbar windows, in a list reused between calls (valid until the next call).</summary>
     public static List<HWND> All()
     {
-        var list = new List<HWND>(2);
+        List<HWND> list = _reusable ??= new List<HWND>(2);
+        list.Clear();
         _scratch = list;
         _ = PInvoke.EnumWindows(&Collect, default);
         _scratch = null;

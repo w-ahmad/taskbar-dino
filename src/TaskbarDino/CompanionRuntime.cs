@@ -24,7 +24,8 @@ namespace TaskbarDino;
 internal sealed class CompanionRuntime : IDisposable
 {
     private const float DebounceSeconds = 0.35f;        // collapses rapid app switches
-    private const float MaxAnimationDelta = 1f / 30f;   // animation never jumps more than this per frame
+    private const float MaxMoveDelta = 1f / 30f;        // physics never integrates more than this per frame
+    private const float MaxAnimationDelta = 1f;         // a wake-up after a long sleep still lands on the scheduled frame
     private const float IdlePollSeconds = 6f;           // re-check the icon position / full-screen state when settled
     private const float FullscreenPollSeconds = 2f;     // while hidden behind a full-screen app
     private const float ReturnHomeDelaySeconds = 1.4f;  // dropped dino looks around, then heads home
@@ -32,6 +33,9 @@ internal sealed class CompanionRuntime : IDisposable
     private const int GazeDeadZone = 14;                // sprite px × scale: cursor straight above = look ahead
     private const int TrayIconSize = 32;
     private const int MarginSprite = 16;                // sprite px of air around the dino for effects
+
+    // Diagnostics switch for leak bisection: TASKBARDINO_NOPOLL=1 disables the periodic idle poll.
+    private static readonly bool NoIdlePoll = Environment.GetEnvironmentVariable("TASKBARDINO_NOPOLL") == "1";
 
     private readonly OverlayWindow _overlay;
     private readonly MouseHook _mouse;
@@ -257,6 +261,7 @@ internal sealed class CompanionRuntime : IDisposable
     private FrameOutcome TickCompanion(FrameTime time)
     {
         float dt = time.DeltaSeconds;
+        float moveDt = MathF.Min(dt, MaxMoveDelta);
         float animDt = MathF.Min(dt, MaxAnimationDelta);
         FrameOutcome outcome = FrameOutcome.Idle;
 
@@ -278,7 +283,7 @@ internal sealed class CompanionRuntime : IDisposable
 
         if (!_dragging)
         {
-            _move.Update(animDt);
+            _move.Update(moveDt);
             if (!_move.IsBusy && _nextLeg is { } leg)
             {
                 ContinueLeg(leg);
@@ -331,7 +336,7 @@ internal sealed class CompanionRuntime : IDisposable
             outcome = Soonest(outcome, _animation.TimeUntilNextFrame);
 
             // Quiet periodic checks while settled: icon drift (rearranged taskbar) and full-screen apps.
-            if (!_follow.Pending && _returnHomeIn <= 0f && !_hovering)
+            if (!NoIdlePoll && !_follow.Pending && _returnHomeIn <= 0f && !_hovering)
             {
                 _idlePoll -= dt;
                 if (_idlePoll <= 0f)

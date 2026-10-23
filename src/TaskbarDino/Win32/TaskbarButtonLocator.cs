@@ -13,17 +13,17 @@ namespace TaskbarDino.Win32;
 /// <summary>
 /// Locates the taskbar button of the foreground app via UI Automation — the only reliable way on
 /// Windows 11, where the taskbar is a XAML app and button rectangles are not otherwise exposed.
-/// Every taskbar (primary and per-monitor) is searched with one cached, filtered query each: the
-/// provider returns only Button elements with Name/AutomationId/BoundingRectangle pre-fetched, so
-/// a lookup is a couple of cross-process round trips rather than hundreds.
+/// Every taskbar (primary and per-monitor) is searched with one cached, Button-filtered query, so a
+/// lookup is a couple of cross-process round trips rather than hundreds, and the scan allocates
+/// nothing on the managed heap (it runs every few seconds for the lifetime of the process).
 /// </summary>
 /// <remarks>
 /// Matching: the window's App User Model ID (AUMID) against each button's AutomationId
 /// ("Appid: &lt;AUMID&gt;") is authoritative — it is what makes Edge PWAs, Store and pinned apps
 /// work, whose titles never mention the app. Multiple instances share an AUMID, so the best
-/// title-word overlap breaks ties. Without an AUMID match, shared significant words between the
-/// button label and the window title/process name decide (labels and titles rarely share a
-/// contiguous substring). '+' and '#' stay inside tokens so "Notepad++" ≠ "Notepad".
+/// title-word overlap (and the button on the window's own monitor) breaks ties. Without an AUMID
+/// match, shared significant words between the button label and the window title/process name
+/// decide. '+' and '#' stay inside tokens so "Notepad++" ≠ "Notepad".
 /// </remarks>
 internal sealed unsafe class TaskbarButtonLocator : IDisposable
 {
@@ -39,9 +39,9 @@ internal sealed unsafe class TaskbarButtonLocator : IDisposable
     private IUIAutomationCacheRequest* _cache;
     private bool _unavailable;
 
-    private readonly List<Button> _scratch = new(32);
-
-    private readonly record struct Button(string Name, string AutomationId, PixelRect Rect);
+    // The AUMID of the last window asked about, so repeated polls for the same window don't re-query it.
+    private HWND _appIdWindow;
+    private string _appId = string.Empty;
 
     public bool TryGetButtonRect(ActiveWindow active, out PixelRect rect)
     {
@@ -53,42 +53,26 @@ internal sealed unsafe class TaskbarButtonLocator : IDisposable
 
         try
         {
-            string appId = GetWindowAppId(active.Handle);
-            nint windowMonitor = Monitors.FromWindow(active.Handle).Handle;
-            CollectButtons();
-
-            int bestAumidScore = -1, bestNameScore = 0;
-            PixelRect aumidRect = default, nameRect = default;
-            foreach (Button b in _scratch)
+            if (active.Handle != _appIdWindow)
             {
-                // Windows can show the same button on every taskbar; prefer the one on the window's own monitor.
-                int nameScore = MatchScore(b.Name, active) + (Monitors.FromPoint(b.Rect.Center).Handle == windowMonitor ? 1 : 0);
-                if (appId.Length > 0 && b.AutomationId.Contains(appId, StringComparison.OrdinalIgnoreCase) && nameScore > bestAumidScore)
-                {
-                    bestAumidScore = nameScore;
-                    aumidRect = b.Rect;
-                }
-
-                if (nameScore > bestNameScore)
-                {
-                    bestNameScore = nameScore;
-                    nameRect = b.Rect;
-                }
+                _appIdWindow = active.Handle;
+                _appId = GetWindowAppId(active.Handle);
             }
 
-            if (bestAumidScore >= 0 && !aumidRect.IsEmpty)
+            Scan scan = Run(active, _appId);
+            if (scan.AumidScore >= 0 && !scan.AumidRect.IsEmpty)
             {
-                rect = aumidRect;
+                rect = scan.AumidRect;
                 return true;
             }
 
-            if (bestNameScore > 0 && !nameRect.IsEmpty)
+            if (scan.NameScore > 0 && !scan.NameRect.IsEmpty)
             {
-                rect = nameRect;
+                rect = scan.NameRect;
                 return true;
             }
 
-            Log.Info($"No taskbar button for '{active.ProcessName}' \"{active.Title}\" (appId '{appId}', {_scratch.Count} buttons seen)");
+            Log.Info($"No taskbar button for '{active.ProcessName}' \"{active.Title}\" (appId '{_appId}', {scan.Buttons} buttons seen)");
         }
         catch (Exception ex)
         {
@@ -109,22 +93,15 @@ internal sealed unsafe class TaskbarButtonLocator : IDisposable
 
         try
         {
-            CollectButtons();
-            foreach (Button b in _scratch)
-            {
-                if (b.AutomationId.Equals("StartButton", StringComparison.OrdinalIgnoreCase) && !b.Rect.IsEmpty)
-                {
-                    rect = b.Rect;
-                    return true;
-                }
-            }
+            Scan scan = Run(null, string.Empty);
+            rect = scan.StartRect;
+            return !rect.IsEmpty;
         }
         catch (Exception ex)
         {
             Log.Warn($"Start button lookup failed: {ex.Message}");
+            return false;
         }
-
-        return false;
     }
 
     public void Dispose()
@@ -174,12 +151,26 @@ internal sealed unsafe class TaskbarButtonLocator : IDisposable
         }
     }
 
-    /// <summary>Fills <see cref="_scratch"/> with every button on every taskbar.</summary>
-    private void CollectButtons()
+    /// <summary>Result of one pass over every taskbar button.</summary>
+    private struct Scan
     {
-        _scratch.Clear();
+        public int Buttons;
+        public int AumidScore;     // -1 = no AUMID match
+        public PixelRect AumidRect;
+        public int NameScore;
+        public PixelRect NameRect;
+        public PixelRect StartRect;
+    }
+
+    /// <summary>One pass over all taskbars: scores every button against <paramref name="active"/> and spots the Start button.</summary>
+    private Scan Run(ActiveWindow? active, string appId)
+    {
+        var scan = new Scan { AumidScore = -1 };
+        nint windowMonitor = active is null ? 0 : Monitors.FromWindow(active.Handle).Handle;
+
         foreach (HWND taskbar in TaskbarWindows.All())
         {
+            nint taskbarMonitor = Monitors.FromWindow(taskbar).Handle;
             IUIAutomationElement* root = null;
             IUIAutomationElementArray* elements = null;
             try
@@ -195,15 +186,44 @@ internal sealed unsafe class TaskbarButtonLocator : IDisposable
                         continue;
                     }
 
+                    BSTR name = default, automationId = default;
                     try
                     {
-                        string name = Com.TakeString(element->CachedName);
-                        string automationId = Com.TakeString(element->CachedAutomationId);
+                        name = element->CachedName;
+                        automationId = element->CachedAutomationId;
                         RECT r = element->CachedBoundingRectangle;
-                        _scratch.Add(new Button(name, automationId, PixelRect.FromLTRB(r.left, r.top, r.right, r.bottom)));
+                        var rect = PixelRect.FromLTRB(r.left, r.top, r.right, r.bottom);
+                        scan.Buttons++;
+
+                        ReadOnlySpan<char> id = automationId.AsSpan();
+                        if (scan.StartRect.IsEmpty && id.Equals("StartButton", StringComparison.OrdinalIgnoreCase))
+                        {
+                            scan.StartRect = rect;
+                        }
+
+                        if (active is null)
+                        {
+                            continue;
+                        }
+
+                        // Windows can show the same button on every taskbar; prefer the one on the window's own monitor.
+                        int score = MatchScore(name.AsSpan(), active) + (taskbarMonitor == windowMonitor ? 1 : 0);
+                        if (appId.Length > 0 && id.Contains(appId, StringComparison.OrdinalIgnoreCase) && score > scan.AumidScore)
+                        {
+                            scan.AumidScore = score;
+                            scan.AumidRect = rect;
+                        }
+
+                        if (score > scan.NameScore)
+                        {
+                            scan.NameScore = score;
+                            scan.NameRect = rect;
+                        }
                     }
                     finally
                     {
+                        PInvoke.SysFreeString(name);
+                        PInvoke.SysFreeString(automationId);
                         element->Release();
                     }
                 }
@@ -218,6 +238,8 @@ internal sealed unsafe class TaskbarButtonLocator : IDisposable
                 Com.Release(ref root);
             }
         }
+
+        return scan;
     }
 
     /// <summary>Reads a window's Application User Model ID (empty if it has none).</summary>
@@ -234,7 +256,6 @@ internal sealed unsafe class TaskbarButtonLocator : IDisposable
             PROPERTYKEY key = PInvoke.PKEY_AppUserModel_ID;
             PROPVARIANT value = default;
             store->GetValue(&key, &value);
-
             try
             {
                 Span<char> buffer = stackalloc char[512];
@@ -263,18 +284,14 @@ internal sealed unsafe class TaskbarButtonLocator : IDisposable
         return string.Empty;
     }
 
-    /// <summary>Scores a button label against the active window by shared significant words (0 = no match).</summary>
-    private static int MatchScore(string buttonName, ActiveWindow active)
+    /// <summary>Scores a button label against the active window by shared significant words (0 = no match). Allocation-free.</summary>
+    private static int MatchScore(ReadOnlySpan<char> buttonName, ActiveWindow active)
     {
-        if (buttonName.Length == 0)
-        {
-            return 0;
-        }
-
         int score = 0;
-        foreach (Range r in Tokens(buttonName))
+        var words = new TokenEnumerator(buttonName);
+        while (words.MoveNext())
         {
-            ReadOnlySpan<char> word = buttonName.AsSpan(r);
+            ReadOnlySpan<char> word = buttonName[words.Current];
             if (ContainsWord(active.Title, word) || ContainsWord(active.ProcessName, word))
             {
                 score += word.Length;
@@ -286,9 +303,10 @@ internal sealed unsafe class TaskbarButtonLocator : IDisposable
 
     private static bool ContainsWord(string text, ReadOnlySpan<char> word)
     {
-        foreach (Range r in Tokens(text))
+        var tokens = new TokenEnumerator(text);
+        while (tokens.MoveNext())
         {
-            if (text.AsSpan(r).Equals(word, StringComparison.OrdinalIgnoreCase))
+            if (text.AsSpan(tokens.Current).Equals(word, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
@@ -298,66 +316,101 @@ internal sealed unsafe class TaskbarButtonLocator : IDisposable
     }
 
     /// <summary>
-    /// Significant word tokens (≥3 chars, not stop words) of a string, including CamelCase parts so
-    /// "WindowsTerminal" also yields "Terminal". Allocation-free apart from the result list.
+    /// Yields the significant word tokens of a string (≥3 chars, not stop words) and, for CamelCase
+    /// tokens, their parts too ("WindowsTerminal" → "WindowsTerminal", "Windows", "Terminal") so a
+    /// process name can match a shorter taskbar label. A ref struct, so enumeration allocates nothing.
     /// </summary>
-    private static List<Range> Tokens(string text)
+    private ref struct TokenEnumerator(ReadOnlySpan<char> text)
     {
-        var ranges = new List<Range>(8);
-        int i = 0;
-        while (i < text.Length)
+        private readonly ReadOnlySpan<char> _text = text;
+        private int _pos;          // scan position in the text
+        private int _tokenStart;   // current whole token
+        private int _tokenEnd;
+        private int _partStart;    // next CamelCase part to yield inside the token
+        private bool _inParts;
+
+        public Range Current { get; private set; }
+
+        public bool MoveNext()
         {
-            if (!IsWordChar(text[i]))
+            while (true)
             {
-                i++;
-                continue;
-            }
-
-            int start = i;
-            while (i < text.Length && IsWordChar(text[i]))
-            {
-                i++;
-            }
-
-            AddIfSignificant(ranges, text, start, i);
-
-            int partStart = start;
-            for (int j = start + 1; j < i; j++)
-            {
-                if (char.IsUpper(text[j]) && char.IsLower(text[j - 1]))
+                if (_inParts)
                 {
-                    AddIfSignificant(ranges, text, partStart, j);
-                    partStart = j;
+                    // Yield successive CamelCase parts of the current token.
+                    int j = _partStart + 1;
+                    while (j < _tokenEnd && !(char.IsUpper(_text[j]) && char.IsLower(_text[j - 1])))
+                    {
+                        j++;
+                    }
+
+                    int start = _partStart;
+                    _partStart = j;
+                    if (j >= _tokenEnd)
+                    {
+                        _inParts = false;
+                        if (start == _tokenStart)
+                        {
+                            continue; // no split occurred: the whole token was already yielded
+                        }
+                    }
+
+                    if (Significant(start, j))
+                    {
+                        Current = new Range(start, j);
+                        return true;
+                    }
+
+                    continue;
+                }
+
+                // Next whole token.
+                while (_pos < _text.Length && !IsWordChar(_text[_pos]))
+                {
+                    _pos++;
+                }
+
+                if (_pos >= _text.Length)
+                {
+                    return false;
+                }
+
+                _tokenStart = _pos;
+                while (_pos < _text.Length && IsWordChar(_text[_pos]))
+                {
+                    _pos++;
+                }
+
+                _tokenEnd = _pos;
+                _partStart = _tokenStart;
+                _inParts = true;
+                if (Significant(_tokenStart, _tokenEnd))
+                {
+                    Current = new Range(_tokenStart, _tokenEnd);
+                    return true;
+                }
+            }
+        }
+
+        private readonly bool Significant(int start, int end)
+        {
+            if (end - start < 3)
+            {
+                return false;
+            }
+
+            ReadOnlySpan<char> token = _text[start..end];
+            foreach (string stop in StopWords)
+            {
+                if (token.Equals(stop, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
                 }
             }
 
-            if (partStart > start)
-            {
-                AddIfSignificant(ranges, text, partStart, i);
-            }
+            return true;
         }
 
-        return ranges;
+        private static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c is '+' or '#';
     }
-
-    private static void AddIfSignificant(List<Range> ranges, string text, int start, int end)
-    {
-        if (end - start < 3)
-        {
-            return;
-        }
-
-        ReadOnlySpan<char> token = text.AsSpan(start, end - start);
-        foreach (string stop in StopWords)
-        {
-            if (token.Equals(stop, StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-        }
-
-        ranges.Add(new Range(start, end));
-    }
-
-    private static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c is '+' or '#';
 }

@@ -30,8 +30,6 @@ public sealed class MoveController
 
     public float FeetX => _x;
 
-    public float TargetX => _targetX;
-
     public float JumpHeight => _jumpHeight;
 
     public Facing Facing { get; private set; } = Facing.Right;
@@ -40,9 +38,6 @@ public sealed class MoveController
 
     /// <summary>True while the dino still has ground to cover or is airborne.</summary>
     public bool IsBusy => _jumping || MathF.Abs(_targetX - _x) > ArriveEpsilon;
-
-    /// <summary>The maximum height a hop reaches.</summary>
-    public float MaxJumpHeight => (JumpVelocity * JumpVelocity) / (2f * Gravity) * _scale;
 
     /// <summary>Instantly relocates (no animation). Use only for hard cuts like a monitor change.</summary>
     public void Teleport(float x)
@@ -73,8 +68,6 @@ public sealed class MoveController
         _jumpVelocity = 0f;
         _jumping = _jumpHeight > 0f;
     }
-
-    public void Face(Facing facing) => Facing = facing;
 
     public void Update(float deltaSeconds)
     {
