@@ -9,10 +9,14 @@
 
 .PARAMETER Configuration
     Build configuration (default: Release).
+
+.PARAMETER Version
+    Version stamped into the executable and the ZIP name (default: <Version> in Directory.Build.props).
 #>
 [CmdletBinding()]
 param(
-    [string] $Configuration = "Release"
+    [string] $Configuration = "Release",
+    [string] $Version
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,8 +39,10 @@ $vcvars = Join-Path $vsPath "VC\Auxiliary\Build\vcvars64.bat"
 New-Item -ItemType Directory -Force $publishDir | Out-Null
 Get-ChildItem $publishDir -File -ErrorAction SilentlyContinue | Remove-Item -Force
 
+$versionArg = if ($Version) { "-p:Version=$Version" } else { "" }
+
 Write-Host "Publishing (Native AOT, win-x64, $Configuration)..."
-cmd /c "`"$vcvars`" >nul && dotnet publish `"$project`" -c $Configuration -r win-x64 --nologo -v q -p:IlcUseEnvironmentalTools=true -o `"$publishDir`""
+cmd /c "`"$vcvars`" >nul && dotnet publish `"$project`" -c $Configuration -r win-x64 --nologo -v q -p:IlcUseEnvironmentalTools=true $versionArg -o `"$publishDir`""
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed ($LASTEXITCODE)." }
 
 # Only the executable ships; symbols stay out of the portable package.

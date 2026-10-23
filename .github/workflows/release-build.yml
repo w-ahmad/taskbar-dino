@@ -1,0 +1,88 @@
+# Builds the Native AOT executable, packages the portable ZIP and publishes a GitHub release.
+# Manual only: Actions -> Release build -> Run workflow, enter the version (e.g. 1.0.1).
+name: Release build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 1.0.1 or 1.1.0-beta.1 (tagged as v<version>)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Validate version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          $version = $env:INPUT_VERSION.Trim() -replace '^v', ''
+          if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
+            throw "'$env:INPUT_VERSION' is not a valid version. Use MAJOR.MINOR.PATCH, optionally with a pre-release suffix (1.1.0-beta.1)."
+          }
+          if ($env:GITHUB_REF -ne 'refs/heads/main') {
+            throw "Releases are built from main only (this run is on $env:GITHUB_REF)."
+          }
+          if (git ls-remote --tags origin "refs/tags/v$version") {
+            throw "Tag v$version already exists. Pick a new version."
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "prerelease=$($version.Contains('-').ToString().ToLower())" >> $env:GITHUB_OUTPUT
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Test
+        run: dotnet test TaskbarDino.slnx -c Release
+
+      - name: Publish (Native AOT)
+        run: ./build/publish.ps1 -Version '${{ steps.version.outputs.version }}'
+
+      - name: Create release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        run: |
+          $zip = "artifacts/TaskbarDino-$env:VERSION-win-x64.zip"
+          if (-not (Test-Path $zip)) { throw "$zip was not produced." }
+
+          $notes = @"
+          A tiny pixel-art dinosaur that lives on your Windows taskbar and turns into a runner game when you double-click it.
+
+          - Download ``TaskbarDino-$env:VERSION-win-x64.zip``, unzip anywhere and run ``TaskbarDino.exe``.
+          - Windows 11 (Windows 10 works too), x64, no .NET runtime needed.
+          - The exe is not code-signed: if SmartScreen says *Windows protected your PC*, choose **More info → Run anyway**.
+          - Right-click the dino for settings; turn on **Start with Windows** to keep it around.
+          "@
+
+          $flags = @()
+          if ($env:PRERELEASE -eq 'true') { $flags += '--prerelease' }
+
+          gh release create "v$env:VERSION" $zip `
+            --target $env:GITHUB_SHA `
+            --title "Taskbar Dino $env:VERSION" `
+            --notes $notes `
+            --generate-notes `
+            @flags
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed ($LASTEXITCODE)." }
