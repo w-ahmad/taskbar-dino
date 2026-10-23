@@ -4,6 +4,7 @@ using TaskbarDino.Core.Time;
 
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.System.Threading;
 using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace TaskbarDino.Win32;
@@ -13,15 +14,28 @@ namespace TaskbarDino.Win32;
 /// <see cref="FrameOutcome.Idle"/> blocks in <c>WaitMessage</c> (0% CPU) until an OS message or a
 /// <see cref="Wake"/> arrives; <see cref="FrameOutcome.WakeIn"/> waits at most that long; and
 /// <see cref="FrameOutcome.Continuous"/> paces to the 60 FPS cap. Every wait ends early on input.
+/// Frame pacing uses a high-resolution waitable timer (the plain wait timeout only has the 15.6 ms
+/// system-tick granularity, which would cap animation at ~45 FPS); it falls back to the plain wait
+/// where that timer is unavailable.
 /// </summary>
-internal sealed unsafe class MessageLoop
+internal sealed unsafe class MessageLoop : IDisposable
 {
     public const double TargetFps = 60.0;
     private const double FrameBudgetMs = 1000.0 / TargetFps;
 
     private readonly long _start = Stopwatch.GetTimestamp();
+    private readonly HANDLE _pacingTimer;
     private uint _threadId;
     private volatile bool _quit;
+
+    public MessageLoop()
+    {
+        _pacingTimer = PInvoke.CreateWaitableTimerEx(null, (PCWSTR)null, PInvoke.CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, (uint)SYNCHRONIZATION_ACCESS_RIGHTS.TIMER_ALL_ACCESS);
+        if (_pacingTimer.IsNull)
+        {
+            Log.Warn($"High-resolution timer unavailable; frame pacing falls back to the system tick.");
+        }
+    }
 
     public TimeSpan Elapsed => Stopwatch.GetElapsedTime(_start);
 
@@ -76,6 +90,14 @@ internal sealed unsafe class MessageLoop
         Wake();
     }
 
+    public void Dispose()
+    {
+        if (!_pacingTimer.IsNull)
+        {
+            _ = PInvoke.CloseHandle(_pacingTimer);
+        }
+    }
+
     /// <summary>Processes every queued message. Returns <see langword="false"/> on <c>WM_QUIT</c>.</summary>
     private bool DrainMessages()
     {
@@ -98,10 +120,27 @@ internal sealed unsafe class MessageLoop
     private void WaitForFrameBudget(TimeSpan frameStart)
     {
         double remainingMs = FrameBudgetMs - (Elapsed - frameStart).TotalMilliseconds;
-        if (remainingMs >= 1d)
+        if (remainingMs < 0.25)
+        {
+            return;
+        }
+
+        if (_pacingTimer.IsNull)
         {
             Wait(remainingMs);
+            return;
         }
+
+        // Sub-millisecond deadline on the high-resolution timer; the timeout is only a backstop.
+        long due = -(long)(remainingMs * 10_000); // relative, 100 ns units
+        HANDLE timer = _pacingTimer;
+        if (!PInvoke.SetWaitableTimer(timer, &due, 0, null, null, false))
+        {
+            Wait(remainingMs);
+            return;
+        }
+
+        _ = PInvoke.MsgWaitForMultipleObjectsEx(1, &timer, (uint)Math.Ceiling(remainingMs) + 2, QUEUE_STATUS_FLAGS.QS_ALLINPUT, MSG_WAIT_FOR_MULTIPLE_OBJECTS_EX_FLAGS.MWMO_INPUTAVAILABLE);
     }
 
     private static void Wait(double milliseconds)

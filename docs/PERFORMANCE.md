@@ -45,11 +45,51 @@ finalizer), COM/UIA and the driver, all idle.
 
 ## Long-run idle (10 minutes, 30 s samples, GPU path)
 
-LONGRUN_PLACEHOLDER
+First run (before the allocation-free taskbar scan): private bytes crept from 37.3 MB to 40.2 MB
+over 10 minutes (≈0.3 MB/min) with CPU at 1–3 ms/s, handles 297–313 and threads 5–8. The growth was
+isolated by bisection (WARP, 1 MB gen0 budget, idle poll on/off) to the managed allocations of the
+periodic UI Automation scan — strings, lists and tuples created every 6 s that the AOT garbage
+collector had not yet collected — not to a native leak. The scan was rewritten to allocate nothing
+(spans over the BSTRs, a ref-struct tokenizer, reused lists, cached AUMID).
+
+Final build, 5 minutes idle, GPU path, 30 s samples:
+
+| | first sample | last sample |
+|---|---|---|
+| Private bytes | 36.9 MB | 36.9 MB |
+| Working set | 61.1 MB | 61.3 MB |
+| Handles | 307 | 296 |
+| Threads | 8 | 6 |
+| CPU | 1.0–2.6 ms/s (avg 2.0 ms/s = 0.009 % of the machine) | |
+
+Four-minute WARP control runs: private 7.0 → 6.9 MB with the idle poll on, 6.9 → 6.7 MB with it
+off (0.0–1.0 ms/s CPU without the poll, i.e. the poll accounts for about 2 ms/s). Raw CSVs are in
+the measurement scratch folder; the numbers above are copied from them.
+
+Repeated-cycle tests (game enter/exit, drag, colour and setting changes) were exercised in the
+Sandbox and host sessions during development but were not run as counted long-duration loops; see
+the validation report for what was and was not automated.
 
 ## Game Mode (autopilot, 40 s, logging on)
 
-GAME_PLACEHOLDER
+`TaskbarDino.exe --game --autopilot --log`, 40 s, full-width stage on a 1920 px monitor, dino size
+Small (1.5×), 60 Hz display, vsync present. "fps" is the per-second count of game frames drawn while
+the run was in the Running state (one-second windows containing a crash/restart read low).
+
+| | GPU (default) | WARP (Low-Memory Rendering) |
+|---|---|---|
+| Frame rate, average / max | 56.8 / 58.9 fps | 58.4 / 59.1 fps |
+| CPU, % of one core | 0.12 % | 0.62 % |
+| CPU, % of the machine | 0.005 % | 0.028 % |
+| Peak private bytes | 41.0 MB | 7.8 MB |
+| Peak working set | 65.3 MB | 34.9 MB |
+| Threads | 8 | 8 |
+
+Before the high-resolution pacing timer the same run averaged 46.9 fps (GPU) / 51.4 fps (WARP): the
+plain `MsgWaitForMultipleObjectsEx` timeout rounds up to the 15.6 ms system tick, so a frame that
+needed a 6 ms wait slept 15 ms. Pacing now arms a `CREATE_WAITABLE_TIMER_HIGH_RESOLUTION` timer and
+waits on it (plus messages), which lands frames on the 16.7 ms budget without changing the global
+timer resolution.
 
 ## What made the difference
 

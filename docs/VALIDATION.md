@@ -66,7 +66,8 @@ Evidence files are in `artifacts/validation/` (screenshots `*.png`, recordings
 | Baseline (as received, framework-dependent) | started, dino on the Claude app's button; measured for the performance report |
 | Restructured FD build | started, correct button, idle 0.028 % |
 | AOT build | started, correct button; 20 s idle measurement; menu/game verified in the Sandbox instead of by injecting input on the host desktop |
-| Long-run idle (10 min, 30 s samples) | see `docs/PERFORMANCE.md` |
+| Long-run idle (10 min GPU, then 4–6 min WARP bisection runs, then 5 min GPU on the final build) | flat private memory on the final build (36.9 → 36.9 MB over 5 min); see `docs/PERFORMANCE.md` |
+| Game Mode benchmark (`--game --autopilot`, 40 s, GPU and WARP) | 57–58 fps average at the 60 fps cap, 0.12 % / 0.62 % of one core |
 
 ## Limitations of this validation
 
