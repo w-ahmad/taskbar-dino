@@ -22,9 +22,6 @@ internal sealed unsafe class MenuIcons : IDisposable
     public const char Color = '';
     public const char Size = '';
     public const char Personality = '';
-    public const char FullScreen = '';
-    public const char Memory = '';
-    public const char Power = '';
     public const char Undo = '';
     public const char OpenFile = '';
     public const char Reset = '';
@@ -78,7 +75,7 @@ internal sealed unsafe class MenuIcons : IDisposable
             {
                 uint v = px[i];
                 uint a = Math.Max((v >> 16) & 0xFF, Math.Max((v >> 8) & 0xFF, v & 0xFF));
-                px[i] = (a << 24) | ((b * a / 255) << 16) | ((g * a / 255) << 8) | (r * a / 255);
+                px[i] = (a << 24) | ((r * a / 255) << 16) | ((g * a / 255) << 8) | (b * a / 255); // 0xAARRGGBB in memory as B,G,R,A
             }
 
             return true;
@@ -94,8 +91,8 @@ internal sealed unsafe class MenuIcons : IDisposable
             int n = _size;
             float radius = n / 2f - 1f;
             float c = n / 2f;
-            uint outline = 0xFF000000u | ((uint)(color.B * 6 / 10) << 16) | ((uint)(color.G * 6 / 10) << 8) | (uint)(color.R * 6 / 10);
-            uint fill = 0xFF000000u | ((uint)color.B << 16) | ((uint)color.G << 8) | color.R;
+            uint outline = 0xFF000000u | ((uint)(color.R * 6 / 10) << 16) | ((uint)(color.G * 6 / 10) << 8) | (uint)(color.B * 6 / 10);
+            uint fill = 0xFF000000u | ((uint)color.R << 16) | ((uint)color.G << 8) | color.B;
             for (int y = 0; y < n; y++)
             {
                 for (int x = 0; x < n; x++)

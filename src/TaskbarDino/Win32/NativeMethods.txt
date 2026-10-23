@@ -171,3 +171,4 @@ GetDpiForWindow
 
 EndMenu
 SetCursorPos
+keybd_event

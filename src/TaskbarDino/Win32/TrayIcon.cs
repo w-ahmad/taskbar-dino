@@ -10,6 +10,7 @@ using TaskbarDino.Core.Settings;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Gdi;
+using Windows.Win32.UI.Input.KeyboardAndMouse;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.WindowsAndMessaging;
 
@@ -289,9 +290,10 @@ internal sealed unsafe class TrayIcon : IDisposable
         Submenu(menu, colors, "Dino Color", icons.Glyph(MenuIcons.Color));
         Submenu(menu, sizes, "Dino Size", icons.Glyph(MenuIcons.Size));
         Submenu(menu, personality, "Personality", icons.Glyph(MenuIcons.Personality));
-        Append(menu, IdFullscreen, "Pause in Full-Screen Apps", s.PauseInFullscreen, icon: icons.Glyph(MenuIcons.FullScreen));
-        Append(menu, IdSoftware, "Low-Memory Rendering (CPU)", s.SoftwareRendering, icon: icons.Glyph(MenuIcons.Memory));
-        Append(menu, IdStartup, "Start with Windows", s.StartWithWindows, icon: icons.Glyph(MenuIcons.Power));
+        // Toggles carry no icon: the check mark is their indicator.
+        Append(menu, IdFullscreen, "Pause in Full-Screen Apps", s.PauseInFullscreen);
+        Append(menu, IdSoftware, "Low-Memory Rendering (CPU)", s.SoftwareRendering);
+        Append(menu, IdStartup, "Start with Windows", s.StartWithWindows);
         Separator(menu);
         Append(menu, IdResetHigh, s.HighScore > 0 ? $"Reset High Score ({s.HighScore})" : "Reset High Score", enabled: s.HighScore > 0, icon: icons.Glyph(MenuIcons.Undo));
         Append(menu, IdOpenSettings, "Open Settings File", icon: icons.Glyph(MenuIcons.OpenFile));
@@ -314,6 +316,7 @@ internal sealed unsafe class TrayIcon : IDisposable
         if (AutoCloseMs > 0)
         {
             _autoCloseTimer = PInvoke.SetTimer(HWND.Null, 0, AutoCloseMs, &OnAutoClose);
+            _ = PInvoke.SetTimer(HWND.Null, 0, 700, &OnPreviewKeys);
         }
 
         BOOL result = PInvoke.TrackPopupMenuEx(menu, TpmRightButton | TpmReturnCmd | TpmBottomAlign, cursor.X, cursor.Y, _hwnd, null);
@@ -344,6 +347,18 @@ internal sealed unsafe class TrayIcon : IDisposable
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvStdcall)])]
     private static void OnAutoClose(HWND hwnd, uint message, nuint timerId, uint time) => PInvoke.EndMenu();
+
+    /// <summary>Diagnostics: with the menu open, walk the keyboard to the colour submenu (Down ×4, Right) so it can be captured.</summary>
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvStdcall)])]
+    private static void OnPreviewKeys(HWND hwnd, uint message, nuint timerId, uint time)
+    {
+        _ = PInvoke.KillTimer(HWND.Null, timerId);
+        foreach (byte vk in new byte[] { 0x28, 0x28, 0x28, 0x28, 0x27 })
+        {
+            PInvoke.keybd_event(vk, 0, 0, 0);
+            PInvoke.keybd_event(vk, 0, KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP, 0);
+        }
+    }
 
     private void Dispatch(uint id)
     {

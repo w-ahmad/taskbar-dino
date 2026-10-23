@@ -141,7 +141,7 @@ internal sealed class CompanionRuntime : IDisposable
         _overlay.ShowRequested += () => { if (_mode == Mode.Hidden) ShowNow(); _loop.Wake(); };
         SubscribeInput();
 
-        _tray.StateProvider = () => new TrayMenuState(_settings.Current, _mode == Mode.Hidden, _mode == Mode.Game, _accent);
+        _tray.StateProvider = () => new TrayMenuState(_settings.Current, _mode == Mode.Hidden, _mode == Mode.Game, AccentColor.Read());
         _tray.Command += OnTrayCommand;
         _tray.Install(DinoSpriteSheet.CreateIconPixels(_settings.Current.Theme, TrayIconSize, _accent), TrayIconSize, "Taskbar Dino");
         if (_settings.Current.StartWithWindows != StartupRegistration.IsEnabled)
