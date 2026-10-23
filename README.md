@@ -1,9 +1,13 @@
 # Taskbar Dino
 
+![Taskbar Dino](docs/images/hero.png)
+
 A tiny pixel-art dinosaur that lives on your Windows taskbar. It sits on the active app's taskbar
 button, follows you from app to app, reacts to your mouse, and turns into a Chrome-Dino style
 runner when you double-click it. It is a single 2.5 MB executable with no runtime to install, and
 it costs effectively nothing while it sits there.
+
+**[Download the latest release](../../releases/latest)** (Windows x64, unzip and run).
 
 ![Dino on the taskbar](docs/images/companion.png)
 
@@ -42,8 +46,11 @@ it costs effectively nothing while it sits there.
 
 ## Installation
 
-1. Download `TaskbarDino-<version>-win-x64.zip` from the releases, or build it (below).
+1. Download `TaskbarDino-<version>-win-x64.zip` from the [releases](../../releases/latest), or build
+   it (below).
 2. Unzip anywhere (for example `%LOCALAPPDATA%\Programs\TaskbarDino`) and run `TaskbarDino.exe`.
+   The executable is not code-signed, so the first launch may show *Windows protected your PC*:
+   choose **More info → Run anyway**.
 3. Optionally turn on **Start with Windows** in the dino's menu. It registers a per-user Run key;
    nothing requires administrator rights.
 
