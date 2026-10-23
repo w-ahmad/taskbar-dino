@@ -51,7 +51,11 @@ internal static unsafe class Program
             using var locator = new TaskbarButtonLocator();
             var settings = new SettingsStore();
             var loop = new MessageLoop();
-            using var runtime = new CompanionRuntime(overlay, mouse, keyboard, foreground, tray, settings, loop, new HomeResolver(locator));
+            using var runtime = new CompanionRuntime(overlay, mouse, keyboard, foreground, tray, settings, loop, new HomeResolver(locator))
+            {
+                StartInGame = Array.IndexOf(args, "--game") >= 0,
+                Autopilot = Array.IndexOf(args, "--autopilot") >= 0,
+            };
             runtime.Run();
         }
         catch (Exception ex)

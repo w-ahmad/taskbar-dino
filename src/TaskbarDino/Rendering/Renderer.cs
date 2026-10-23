@@ -43,10 +43,11 @@ internal sealed unsafe class Renderer : IDisposable
     private IDCompositionTarget* _dcompTarget;
     private IDCompositionVisual* _visual;
 
-    public Renderer(HWND window, int width, int height)
+    public Renderer(HWND window, int width, int height, bool software)
     {
         Width = Math.Max(1, width);
         Height = Math.Max(1, height);
+        Software = software || ForceWarp;
         try
         {
             Initialize(window);
@@ -58,8 +59,11 @@ internal sealed unsafe class Renderer : IDisposable
         }
     }
 
-    /// <summary>Forces the WARP software rasteriser (<c>TASKBARDINO_WARP=1</c>): no GPU driver in the process, at some CPU cost per frame.</summary>
-    public static bool UseWarp { get; } = Environment.GetEnvironmentVariable("TASKBARDINO_WARP") == "1";
+    /// <summary>Environment override (<c>TASKBARDINO_WARP=1</c>) for the software rasteriser, handy for measurements.</summary>
+    private static bool ForceWarp { get; } = Environment.GetEnvironmentVariable("TASKBARDINO_WARP") == "1";
+
+    /// <summary>True when drawing with WARP (by setting, override, or because no GPU device exists).</summary>
+    public bool Software { get; private set; }
 
     public int Width { get; private set; }
 
@@ -184,7 +188,7 @@ internal sealed unsafe class Renderer : IDisposable
 
         ID3D11Device* device = null;
         HRESULT hr = new(unchecked((int)0x80004005)); // E_FAIL until a device exists
-        if (!UseWarp)
+        if (!Software)
         {
             hr = PInvoke.D3D11CreateDevice(null, D3D_DRIVER_TYPE.D3D_DRIVER_TYPE_HARDWARE, HMODULE.Null, flags, levels, PInvoke.D3D11_SDK_VERSION, &device, out _, null);
             if (hr.Failed)
@@ -195,6 +199,7 @@ internal sealed unsafe class Renderer : IDisposable
 
         if (hr.Failed)
         {
+            Software = true;
             PInvoke.D3D11CreateDevice(null, D3D_DRIVER_TYPE.D3D_DRIVER_TYPE_WARP, HMODULE.Null, flags, levels, PInvoke.D3D11_SDK_VERSION, &device, out _, null).ThrowOnFailure();
         }
 

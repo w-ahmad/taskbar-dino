@@ -32,6 +32,14 @@ internal sealed class GameSession
     private bool _gameOverDrawn;
     private bool _restartHintDrawn;
 
+    // Frame-rate telemetry (only while logging) and the benchmark autopilot.
+    private int _frames;
+    private double _fpsWindowStart;
+    private float _autoJumpHeld;
+
+    /// <summary>Benchmark aid (<c>--autopilot</c>): jumps and ducks by itself so Game Mode can be measured unattended.</summary>
+    public bool Autopilot { get; set; }
+
     public GameSession(Random rng) => _game = new DinoGame(rng);
 
     public int HighScore => _game.HighScore;
@@ -79,7 +87,23 @@ internal sealed class GameSession
 
     public FrameOutcome Tick(FrameTime time)
     {
+        if (Autopilot)
+        {
+            RunAutopilot(time.DeltaSeconds);
+        }
+
         _game.Update(time.DeltaSeconds);
+        if (Log.Enabled && _game.State == GameState.Running)
+        {
+            _frames++;
+            double elapsed = time.Total.TotalSeconds - _fpsWindowStart;
+            if (elapsed >= 1.0)
+            {
+                Log.Info($"Game: {_frames / elapsed:0.0} fps, score {_game.Score}, {_game.Obstacles.Count} obstacles");
+                _frames = 0;
+                _fpsWindowStart = time.Total.TotalSeconds;
+            }
+        }
 
         if (_game.State == GameState.Crashed)
         {
@@ -100,6 +124,48 @@ internal sealed class GameSession
         _restartHintDrawn = false;
         Draw();
         return FrameOutcome.Continuous;
+    }
+
+    private void RunAutopilot(float dt)
+    {
+        if (_game.State == GameState.Crashed)
+        {
+            if (_game.RestartReady)
+            {
+                _game.OnJumpDown();
+                _game.OnJumpUp();
+            }
+
+            return;
+        }
+
+        if (_autoJumpHeld > 0f)
+        {
+            _autoJumpHeld -= dt;
+            if (_autoJumpHeld <= 0f)
+            {
+                _game.OnJumpUp();
+            }
+        }
+
+        bool duck = false;
+        foreach (Obstacle o in _game.Obstacles)
+        {
+            float gap = o.X - (_game.Trex.X + GameConfig.DinoWidth);
+            bool mid = o.Type == ObstacleType.Pterodactyl && o.Y + o.Height == GameConfig.BirdBottoms[1];
+            bool high = o.Type == ObstacleType.Pterodactyl && o.Y + o.Height == GameConfig.BirdBottoms[2];
+            if (mid && gap is > -30f and < 30f)
+            {
+                duck = true;
+            }
+            else if (!high && !mid && gap is > 0f && gap < 14f + (o.TotalWidth * 0.5f) && !_game.Trex.IsJumping)
+            {
+                _game.OnJumpDown();
+                _autoJumpHeld = o.TotalWidth > 14f ? 0.35f : 0.12f;
+            }
+        }
+
+        _game.OnDuck(duck);
     }
 
     private void Draw()

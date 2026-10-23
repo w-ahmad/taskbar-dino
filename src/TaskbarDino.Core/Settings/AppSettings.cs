@@ -16,6 +16,13 @@ public sealed record AppSettings
     /// <summary>Hide the dino (and suspend all work) while a full-screen app is in the foreground.</summary>
     public bool PauseInFullscreen { get; init; } = true;
 
+    /// <summary>
+    /// Render with the WARP software rasteriser instead of the GPU. The picture is identical; frames
+    /// cost a little CPU instead of GPU time, but the GPU driver stays out of the process, which
+    /// saves tens of megabytes of memory on most machines.
+    /// </summary>
+    public bool SoftwareRendering { get; init; }
+
     /// <summary>Best score reached in Game Mode, kept between runs.</summary>
     public int HighScore { get; init; }
 

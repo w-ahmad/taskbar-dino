@@ -25,6 +25,7 @@ internal enum TrayCommand
     Size,
     Activity,
     TogglePauseInFullscreen,
+    ToggleSoftwareRendering,
     ToggleStartWithWindows,
     ResetHighScore,
     OpenSettingsFile,
@@ -48,7 +49,7 @@ internal sealed unsafe class TrayIcon : IDisposable
 
     // Menu item ids
     private const uint IdStartGame = 1, IdHide1 = 2, IdHide4 = 3, IdShowNow = 4, IdFullscreen = 5, IdStartup = 6,
-        IdResetHigh = 7, IdOpenSettings = 8, IdResetSettings = 9, IdExit = 10;
+        IdResetHigh = 7, IdOpenSettings = 8, IdResetSettings = 9, IdExit = 10, IdSoftware = 11;
     private const uint IdThemeBase = 100, IdSizeBase = 200, IdActivityBase = 300;
 
     private const uint TpmRightButton = 0x0002, TpmReturnCmd = 0x0100, TpmBottomAlign = 0x0020;
@@ -283,6 +284,7 @@ internal sealed unsafe class TrayIcon : IDisposable
         Submenu(menu, sizes, "Dino Size");
         Submenu(menu, personality, "Personality");
         Append(menu, IdFullscreen, "Pause in Full-Screen Apps", s.PauseInFullscreen);
+        Append(menu, IdSoftware, "Low-Memory Rendering (CPU)", s.SoftwareRendering);
         Append(menu, IdStartup, "Start with Windows", s.StartWithWindows);
         Separator(menu);
         Append(menu, IdResetHigh, s.HighScore > 0 ? $"Reset High Score ({s.HighScore})" : "Reset High Score", enabled: s.HighScore > 0);
@@ -340,6 +342,7 @@ internal sealed unsafe class TrayIcon : IDisposable
             IdHide4 => TrayCommand.HideFourHours,
             IdShowNow => TrayCommand.ShowNow,
             IdFullscreen => TrayCommand.TogglePauseInFullscreen,
+            IdSoftware => TrayCommand.ToggleSoftwareRendering,
             IdStartup => TrayCommand.ToggleStartWithWindows,
             IdResetHigh => TrayCommand.ResetHighScore,
             IdOpenSettings => TrayCommand.OpenSettingsFile,

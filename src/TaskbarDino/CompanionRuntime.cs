@@ -90,6 +90,11 @@ internal sealed class CompanionRuntime : IDisposable
         Suspended,   // a full-screen app is in front
     }
 
+    /// <summary>Benchmark aids: start straight in Game Mode, optionally with the autopilot playing.</summary>
+    public bool StartInGame { get; set; }
+
+    public bool Autopilot { get; set; }
+
     public CompanionRuntime(OverlayWindow overlay, MouseHook mouse, KeyboardHook keyboard, ForegroundTracker foreground, TrayIcon tray, SettingsStore settings, MessageLoop loop, HomeResolver home)
     {
         _overlay = overlay;
@@ -150,6 +155,12 @@ internal sealed class CompanionRuntime : IDisposable
         }
 
         Log.Info($"Companion running; following '{_foreground.Current?.ProcessName ?? "<desktop>"}' at {home.Anchor} (precise: {home.Precise}).");
+        if (StartInGame)
+        {
+            _game.Autopilot = Autopilot;
+            _enterGame = true;
+        }
+
         _loop.Run(Tick);
     }
 
@@ -693,7 +704,7 @@ internal sealed class CompanionRuntime : IDisposable
 
     private void CreateRenderer()
     {
-        _renderer = new Renderer(_overlay.Handle, _windowWidth, _windowHeight);
+        _renderer = new Renderer(_overlay.Handle, _windowWidth, _windowHeight, _settings.Current.SoftwareRendering);
         _dinoTexture = _renderer.CreateTexture(_dinoSheet);
         if (_artSheet is not null)
         {
@@ -705,7 +716,7 @@ internal sealed class CompanionRuntime : IDisposable
 
     private void RecreateRenderer()
     {
-        Log.Warn($"Recreating the renderer after a device loss.");
+        Log.Info($"Recreating the renderer (software: {_settings.Current.SoftwareRendering}).");
         _dinoTexture?.Dispose();
         _artTexture?.Dispose();
         _renderer?.Dispose();
@@ -847,6 +858,10 @@ internal sealed class CompanionRuntime : IDisposable
                 break;
             case TrayCommand.TogglePauseInFullscreen:
                 _settings.Update(s => s with { PauseInFullscreen = !s.PauseInFullscreen });
+                break;
+            case TrayCommand.ToggleSoftwareRendering:
+                _settings.Update(s => s with { SoftwareRendering = !s.SoftwareRendering });
+                RecreateRenderer(); // takes effect immediately; textures are re-uploaded
                 break;
             case TrayCommand.ToggleStartWithWindows:
                 bool enabled = !_settings.Current.StartWithWindows;
